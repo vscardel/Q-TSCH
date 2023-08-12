@@ -13,6 +13,8 @@ import SimEngine
 from . import MoteDefines as d
 from . import sixp
 
+import numpy as np
+
 # =========================== defines =========================================
 
 # =========================== helpers =========================================
@@ -139,6 +141,10 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
     NUM_INITIAL_NEGOTIATED_TX_CELLS = 1
     NUM_INITIAL_NEGOTIATED_RX_CELLS = 0
 
+    #Q-TSCH constants
+    NUM_ACTIONS = 2
+    NUM_STATES = 8
+
     def __init__(self, mote):
         # initialize parent class
         super(SchedulingFunctionMSF, self).__init__(mote)
@@ -152,11 +158,13 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.rx_cell_utilization  = 0
         self.locked_slots         = set([]) # slots in on-going ADD transactions
         self.retry_count          = {}      # indexed by MAC address
-
+        #Q-TSCH variables
+        self.traffic = 0
+        self.queue_ratio = 0
+        self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
     # ======================= public ==========================================
 
     # === admin
-
     def start(self):
         # install slotframes for MSF, which have the same length as
         # Slotframe 0
@@ -195,10 +203,14 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
 
     # === indications from other layers
 
-    def indication_neighbor_added(self, neighbor_mac_addr):
+    def indication_neighbor_added(self, neisghbor_mac_addr):
         pass
 
+    def compute_queue_ratio(self):
+        return len(self.mote.tsch.txQueue)/float(self.settings.tsch_tx_queue_size)
+
     def indication_tx_cell_elapsed(self, cell, sent_packet):
+
         preferred_parent = self.mote.rpl.getPreferredParent()
         if (
                 preferred_parent
@@ -210,6 +222,8 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             self._update_cell_counters(self.TX_CELL_OPT, bool(sent_packet))
             # adapt number of cells if necessary
             if d.MSF_MAX_NUMCELLS <= self.num_tx_cells_elapsed:
+                #compute queue_ratio
+                self.queue_ratio = self.compute_queue_ratio()
                 tx_cell_utilization = (
                     self.num_tx_cells_used /
                     float(self.num_tx_cells_elapsed)
@@ -229,6 +243,9 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     self.tx_cell_utilization = tx_cell_utilization
                 self._adapt_to_traffic(preferred_parent, self.TX_CELL_OPT)
                 self._reset_cell_counters(self.TX_CELL_OPT)
+                ####################
+                #check state variables
+                self.print_state_variables("tx")
 
     def indication_rx_cell_elapsed(self, cell, received_packet):
         preferred_parent = self.mote.rpl.getPreferredParent()
@@ -512,6 +529,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             float(self.num_rx_cells_elapsed)
         )
         if d.MSF_MAX_NUMCELLS <= self.num_rx_cells_elapsed:
+            self.queue_ratio = self.compute_queue_ratio()
             if rx_cell_utilization != self.rx_cell_utilization:
                 self.log(
                     SimEngine.SimLog.LOG_MSF_RX_CELL_UTILIZATION,
@@ -527,6 +545,17 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                 self.rx_cell_utilization = rx_cell_utilization
             self._adapt_to_traffic(preferred_parent, self.RX_CELL_OPT)
             self._reset_cell_counters(self.RX_CELL_OPT)
+            ####################
+            #check state variables
+            self.print_state_variables("rx")
+
+    def print_state_variables(self,option):
+        print(option)
+        print("Id: {0}".format(self.mote.id))
+        print("Queue Ratio: {0}".format(self.queue_ratio))
+        print("traffic: {0}".format(self.traffic))
+        print("poisson prob: {0}".format(self.mote.tsch.probability_poisson_distribution))
+        print()
 
     def _update_cell_counters(self, cell_opt, used):
         if cell_opt == self.TX_CELL_OPT:
@@ -548,6 +577,8 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
 
         if cell_opt == self.TX_CELL_OPT:
             if d.MSF_LIM_NUMCELLSUSED_HIGH < self.tx_cell_utilization:
+                #high traffic
+                self.traffic = 1
                 # add one TX cell
                 self.retry_count[neighbor] = 0
                 self._request_adding_cells(
@@ -556,6 +587,8 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                 )
 
             elif self.tx_cell_utilization < d.MSF_LIM_NUMCELLSUSED_LOW:
+                #low_traffic
+                self.traffic = 0
                 tx_cells = [cell for cell in self.mote.tsch.get_cells(
                         neighbor,
                         self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
@@ -572,6 +605,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         else:
             assert cell_opt == self.RX_CELL_OPT
             if d.MSF_LIM_NUMCELLSUSED_HIGH < self.rx_cell_utilization:
+                self.traffic = 1
                 self.retry_count[neighbor] = 0
                 self._request_adding_cells(
                     neighbor     = neighbor,
@@ -580,11 +614,12 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                 )
 
             elif self.rx_cell_utilization < d.MSF_LIM_NUMCELLSUSED_LOW:
+                self.traffic = 0
                 rx_cells = [cell for cell in self.mote.tsch.get_cells(
                         neighbor,
                         self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
                     ) if cell.options == [d.CELLOPTION_RX]]
-                # delete one *TX* cell but we need to keep one dedicated
+                # delete one *RX* cell but we need to keep one dedicated
                 # cell to our parent at least
                 if len(rx_cells) > self.NUM_INITIAL_NEGOTIATED_RX_CELLS:
                     self.retry_count[neighbor] = 0
