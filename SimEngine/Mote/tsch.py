@@ -82,7 +82,12 @@ class Tsch(object):
         self.args_for_next_pending_bit_task = None
 
         #Q-TSCH variables
-        self.probability_poisson_distribution = 0
+        self.num_packets_sent_in_slotframe = 0
+        self.current_slotframe = -1
+        self.array_packets_sent_in_interval = []        
+        self.INTERVAL = 10
+        self.LAMBDA = 0
+        self.prob_poisson = 0
 
 
         assert self.settings.phy_numChans <= len(d.TSCH_HOPPING_SEQUENCE)
@@ -984,8 +989,25 @@ class Tsch(object):
         asn       = self.engine.getAsn()
         tsCurrent = asn % self.settings.tsch_slotframeLength
 
-        # find closest active slot in schedule
+        #logic to compute the lamdda to derive de poisson prob distribution
+        slotframe_count = self.engine.slotframe_count
+        if slotframe_count == 0:
+            self.current_slotframe = 0
+        else:
+            #switch slotframes
+            if slotframe_count != self.current_slotframe:
+                self.array_packets_sent_in_interval.append(self.num_packets_sent_in_slotframe)
+                if len(self.array_packets_sent_in_interval) == self.INTERVAL:
+                    self.LAMBDA = sum(self.array_packets_sent_in_interval)/float(self.INTERVAL)
+                    self.array_packets_sent_in_interval.pop(0)
+                self.num_packets_sent_in_slotframe = 0
+                self.current_slotframe = slotframe_count
+            else:
+                #is in the same slotframe. Do nothing
+                pass
 
+
+        # find closest active slot in schedule
         if not self.isSync:
             self.engine.removeFutureEvent(uniqueTag=(self.mote.id, u'_action_active_cell'))
             return
@@ -1082,6 +1104,7 @@ class Tsch(object):
         self._schedule_next_active_slot()
 
     def _action_TX(self, pktToSend, channel):
+        self.num_packets_sent_in_slotframe += 1
         # set the pending bit field
         if (
                 (pktToSend[u'mac'][u'dstMac'] != d.BROADCAST_ADDRESS)

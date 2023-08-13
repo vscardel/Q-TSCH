@@ -554,8 +554,9 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         print("Id: {0}".format(self.mote.id))
         print("Queue Ratio: {0}".format(self.queue_ratio))
         print("traffic: {0}".format(self.traffic))
-        print("poisson prob: {0}".format(self.mote.tsch.probability_poisson_distribution))
-        print()
+        print("current_slotframe: {0}".format(self.engine.slotframe_count))
+        print("array packets sent: {0}".format(self.mote.tsch.array_packets_sent_in_interval))
+        print("lambda: {0}".format(self.mote.tsch.LAMBDA))
 
     def _update_cell_counters(self, cell_opt, used):
         if cell_opt == self.TX_CELL_OPT:
