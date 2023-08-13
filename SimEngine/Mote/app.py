@@ -171,6 +171,8 @@ class AppRoot(AppBase):
 
 class AppPeriodic(AppBase):
 
+    MAX_NUM_GENERATE_PACKETS = 30
+
     """Send a packet periodically
 
     Intervals are distributed uniformly between (pkPeriod-pkPeriodVar)
@@ -209,7 +211,7 @@ class AppPeriodic(AppBase):
         # schedule
         self.engine.scheduleIn(
             delay           = delay,
-            cb              = self._send_a_single_packet,
+            cb              = self._send_random_packets,
             uniqueTag       = (
                 u'AppPeriodic',
                 u'scheduled_by_{0}'.format(self.mote.id)
@@ -227,6 +229,20 @@ class AppPeriodic(AppBase):
             dstIp          = self.mote.rpl.dodagId,
             packet_length  = self.settings.app_pkLength
         )
+        # schedule the next transmission
+        self._schedule_transmission()
+
+    def _send_random_packets(self):
+        if self.mote.rpl.dodagId == None:
+            # it seems we left the dodag; stop the transmission
+            self.sending_first_packet = True
+            return
+        NUM_PACKETS = random.randint(1,self.MAX_NUM_GENERATE_PACKETS)
+        for i in range(NUM_PACKETS):
+            self._send_packet(
+                dstIp          = self.mote.rpl.dodagId,
+                packet_length  = self.settings.app_pkLength
+            )
         # schedule the next transmission
         self._schedule_transmission()
 
