@@ -87,8 +87,6 @@ class Tsch(object):
         self.array_packets_sent_in_interval = []        
         self.INTERVAL = 10
         self.LAMBDA = 0
-        self.prob_poisson = 0
-
 
         assert self.settings.phy_numChans <= len(d.TSCH_HOPPING_SEQUENCE)
         self.hopping_sequence = (

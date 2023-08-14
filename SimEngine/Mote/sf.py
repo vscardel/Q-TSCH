@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from builtins import range
 from builtins import object
 import random
+import math
 import sys
 from abc import abstractmethod
 
@@ -549,14 +550,23 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             #check state variables
             self.print_state_variables("rx")
 
+    #compute the poission probability distr for [1,max_num_packets] for the current_slotframe
+    def compute_prob_poission(self,max_num_packets):
+        probs = [(((self.mote.tsch.LAMBDA*self.mote.tsch.INTERVAL)**packet)/float(math.factorial(packet)))*math.e**(-self.mote.tsch.LAMBDA*self.mote.tsch.INTERVAL) for packet in range(1,max_num_packets+1)]
+        return probs
+    
+    def return_max_num_packet_by_prob(self,prob_distr):
+        return 1 + prob_distr.index(max(prob_distr))
+
     def print_state_variables(self,option):
         print(option)
         print("Id: {0}".format(self.mote.id))
         print("Queue Ratio: {0}".format(self.queue_ratio))
         print("traffic: {0}".format(self.traffic))
         print("current_slotframe: {0}".format(self.engine.slotframe_count))
-        print("array packets sent: {0}".format(self.mote.tsch.array_packets_sent_in_interval))
         print("lambda: {0}".format(self.mote.tsch.LAMBDA))
+        prob_distr = self.compute_prob_poission(10)
+        print("expected_number_of_packets_to_send {0}".format(self.return_max_num_packet_by_prob(prob_distr)))
 
     def _update_cell_counters(self, cell_opt, used):
         if cell_opt == self.TX_CELL_OPT:
@@ -575,6 +585,8 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         if self.retry_count[neighbor] != -1:
             # we're in the middle of a 6P transaction; try later
             return
+
+        #inicializar ou atualizar variaveis dos estados
 
         if cell_opt == self.TX_CELL_OPT:
             if d.MSF_LIM_NUMCELLSUSED_HIGH < self.tx_cell_utilization:
@@ -630,6 +642,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                         cell_options = self.RX_CELL_OPT
                     )
 
+        #computar variaveis do proximo estado
 
     def _housekeeping_collision(self):
         """
