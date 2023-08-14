@@ -68,6 +68,7 @@ class DiscreteEventEngine(threading.Thread):
             self.events                         = {}
             self.uniqueTagSchedule              = {}
             self.random_seed                    = None
+            self.slotframe_count = 0
             self._init_additional_local_variables()
 
             # initialize parent class
@@ -120,7 +121,9 @@ class DiscreteEventEngine(threading.Thread):
 
                     # update the current ASN
                     self.asn += 1
-
+                    if self.asn % self.settings.tsch_slotframeLength == 0:
+                        self.slotframe_count += 1
+                    
                     if self.asn not in self.events:
                         continue
 
@@ -208,6 +211,7 @@ class DiscreteEventEngine(threading.Thread):
 
     def getAsn(self):
         return self.asn
+    
 
     def get_mote_by_mac_addr(self, mac_addr):
         for mote in self.motes:
