@@ -160,6 +160,11 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.locked_slots         = set([]) # slots in on-going ADD transactions
         self.retry_count          = {}      # indexed by MAC address
         #Q-TSCH variables
+        self.first_state = True
+        self.prev_queue_ratio = 0
+        self.prev_traffic = 0
+        self.prev_prob = []
+        self.prev_expected_number_of_packets_to_send = 0
         self.traffic = 0
         self.queue_ratio = 0
         self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
@@ -246,7 +251,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                 self._reset_cell_counters(self.TX_CELL_OPT)
                 ####################
                 #check state variables
-                self.print_state_variables("tx")
+                #self.print_state_variables("tx")
 
     def indication_rx_cell_elapsed(self, cell, received_packet):
         preferred_parent = self.mote.rpl.getPreferredParent()
@@ -548,7 +553,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             self._reset_cell_counters(self.RX_CELL_OPT)
             ####################
             #check state variables
-            self.print_state_variables("rx")
+            #self.print_state_variables("rx")
 
     #compute the poission probability distr for [1,max_num_packets] for the current_slotframe
     def compute_prob_poission(self,max_num_packets):
@@ -556,17 +561,36 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         return probs
     
     def return_max_num_packet_by_prob(self,prob_distr):
-        return 1 + prob_distr.index(max(prob_distr))
+        if prob_distr:
+            return 1 + prob_distr.index(max(prob_distr))
+        return 0
+
+    def discretize_queue_ratio(self,queue_ratio):
+        if queue_ratio <= 0.5:
+            return 0
+        return 1
+    
+    def discretize_expected_number_of_packets_to_send(self,expct_num_pkts):
+        if expct_num_pkts <= 5:
+            return 0
+        return 1
+
 
     def print_state_variables(self,option):
         print(option)
-        print("Id: {0}".format(self.mote.id))
-        print("Queue Ratio: {0}".format(self.queue_ratio))
-        print("traffic: {0}".format(self.traffic))
+        print("Mote Id: {0}".format(self.mote.id))
         print("current_slotframe: {0}".format(self.engine.slotframe_count))
-        print("lambda: {0}".format(self.mote.tsch.LAMBDA))
-        prob_distr = self.compute_prob_poission(10)
-        print("expected_number_of_packets_to_send {0}".format(self.return_max_num_packet_by_prob(prob_distr)))
+        print("Queue Ratio: {0}".format(self.prev_queue_ratio))
+        print("traffic: {0}".format(self.prev_traffic))
+        print("expected_number_of_packets_to_send {0}".format(self.return_max_num_packet_by_prob(self.prev_prob)))
+        print("Discretized state variables: q:{0}, t:{1}, p:{2}".format
+            (
+                self.discretize_queue_ratio(self.prev_queue_ratio),
+                self.prev_traffic,
+                self.discretize_expected_number_of_packets_to_send(self.return_max_num_packet_by_prob(self.prev_prob))
+            )
+        )
+        
 
     def _update_cell_counters(self, cell_opt, used):
         if cell_opt == self.TX_CELL_OPT:
@@ -586,7 +610,23 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             # we're in the middle of a 6P transaction; try later
             return
 
-        #inicializar ou atualizar variaveis dos estados
+        #inicializar variaveis do estado atual
+        traffic = self.prev_traffic
+        queue_ratio = self.prev_queue_ratio
+        expected_number_of_packets_to_send = self.return_max_num_packet_by_prob(self.prev_prob)
+
+        # print("traffic:{0}".format(traffic))
+        # print("queue ratio:{0}".format(queue_ratio))
+        # print("expected number of packets to send: {0}".format(expected_number_of_packets_to_send))
+        # print("Discretized state variables: q:{0}, t:{1}, p:{2}".format
+        #     (
+        #         self.discretize_queue_ratio(queue_ratio),
+        #         self.traffic,
+        #         self.discretize_expected_number_of_packets_to_send(expected_number_of_packets_to_send)
+        #     )
+        # )
+
+
 
         if cell_opt == self.TX_CELL_OPT:
             if d.MSF_LIM_NUMCELLSUSED_HIGH < self.tx_cell_utilization:
@@ -643,6 +683,11 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     )
 
         #computar variaveis do proximo estado
+        self.prev_prob = self.compute_prob_poission(10)
+        self.prev_queue_ratio = self.compute_queue_ratio()
+        self.prev_traffic = self.traffic
+
+        #computa Q(s,a) usando r(s,a)
 
     def _housekeeping_collision(self):
         """
