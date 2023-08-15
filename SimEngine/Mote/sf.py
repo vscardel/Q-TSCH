@@ -143,7 +143,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
     NUM_INITIAL_NEGOTIATED_RX_CELLS = 0
 
     #Q-TSCH constants
-    NUM_ACTIONS = 2
+    NUM_ACTIONS = 3
     NUM_STATES = 8
 
     def __init__(self, mote):
@@ -168,6 +168,11 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.traffic = 0
         self.queue_ratio = 0
         self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
+        #Q-TSCH parameters
+        self.ALFA = 0.9
+        self.BETA = 0.5
+        self.EPSLON = 0.7
+
     # ======================= public ==========================================
 
     # === admin
@@ -554,7 +559,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             ####################
             #check state variables
             #self.print_state_variables("rx")
-
+            
     #compute the poission probability distr for [1,max_num_packets] for the current_slotframe
     def compute_prob_poission(self,max_num_packets):
         probs = [(((self.mote.tsch.LAMBDA*self.mote.tsch.INTERVAL)**packet)/float(math.factorial(packet)))*math.e**(-self.mote.tsch.LAMBDA*self.mote.tsch.INTERVAL) for packet in range(1,max_num_packets+1)]
@@ -610,6 +615,8 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             # we're in the middle of a 6P transaction; try later
             return
 
+        #action taked by the node --> 0 is remove one cell, 1 is add one cell and -1 is keep as it is
+        action = 2
         #inicializar variaveis do estado atual
         traffic = self.prev_traffic
         queue_ratio = self.prev_queue_ratio
@@ -626,12 +633,11 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         #     )
         # )
 
-
-
         if cell_opt == self.TX_CELL_OPT:
             if d.MSF_LIM_NUMCELLSUSED_HIGH < self.tx_cell_utilization:
                 #high traffic
                 self.traffic = 1
+                action = 1
                 # add one TX cell
                 self.retry_count[neighbor] = 0
                 self._request_adding_cells(
@@ -642,6 +648,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             elif self.tx_cell_utilization < d.MSF_LIM_NUMCELLSUSED_LOW:
                 #low_traffic
                 self.traffic = 0
+                action = 0
                 tx_cells = [cell for cell in self.mote.tsch.get_cells(
                         neighbor,
                         self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
@@ -659,6 +666,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             assert cell_opt == self.RX_CELL_OPT
             if d.MSF_LIM_NUMCELLSUSED_HIGH < self.rx_cell_utilization:
                 self.traffic = 1
+                action = 1
                 self.retry_count[neighbor] = 0
                 self._request_adding_cells(
                     neighbor     = neighbor,
@@ -668,6 +676,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
 
             elif self.rx_cell_utilization < d.MSF_LIM_NUMCELLSUSED_LOW:
                 self.traffic = 0
+                action = 0
                 rx_cells = [cell for cell in self.mote.tsch.get_cells(
                         neighbor,
                         self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
@@ -686,8 +695,55 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.prev_prob = self.compute_prob_poission(10)
         self.prev_queue_ratio = self.compute_queue_ratio()
         self.prev_traffic = self.traffic
-
+        prev_expected_number_of_packets_to_send = self.return_max_num_packet_by_prob(self.prev_prob)
         #computa Q(s,a) usando r(s,a)
+        list_state_variables = [
+            traffic,
+            self.discretize_queue_ratio(queue_ratio),
+            self.discretize_expected_number_of_packets_to_send(expected_number_of_packets_to_send)
+        ]
+        list_prev_state_variables = [
+            self.prev_traffic,
+            self.discretize_queue_ratio(self.prev_queue_ratio),
+            self.discretize_expected_number_of_packets_to_send(prev_expected_number_of_packets_to_send)
+        ]
+        self.compute_q_table(list_state_variables,list_prev_state_variables,action)
+        print(self.Q_table)
+    
+    def map_state_to_number(self,list_discrete_variables):
+        state = 0
+        str_list = [str(variable) for variable in list_discrete_variables]
+        #convertion binary to decimal
+        for index,c in enumerate(str_list):
+            state += int(c) * 2**(2-index)
+        return state
+    
+    def compute_reward(self,list_state_variables,action):
+        sum_variables = sum(list_state_variables)
+        if sum_variables >= 1 and action == 1:
+            return sum_variables
+        elif sum_variables == 0 and (action == 0 or action == 2):
+            return 3
+        elif sum_variables >= 1 and (action == 0 or action == 2):
+            return -sum_variables
+        elif sum_variables == 0 and action == 1:
+            return -3
+        
+    def return_best_q_value(self,state,action):
+        max_q_value = 0
+        for action in range(self.NUM_ACTIONS):
+            current_value = self.Q_table[state][action]
+            if current_value > max_q_value:
+                max_q_value = current_value
+        return max_q_value
+
+    def compute_q_table(self,list_state_variables,list_prev_state_variables,action):
+        curr_state = self.map_state_to_number(list_state_variables)
+        next_state = self.map_state_to_number(list_prev_state_variables)
+        #compute deltaQ
+        deltaQ = self.compute_reward(list_state_variables,action) + self.BETA * self.return_best_q_value(next_state,action)
+        #compute Q_table[curr_state][action]
+        self.Q_table[curr_state][action] = (1 - self.ALFA) * self.Q_table[curr_state][action] + (self.ALFA * deltaQ)
 
     def _housekeeping_collision(self):
         """
