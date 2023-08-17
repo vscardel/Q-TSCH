@@ -171,7 +171,7 @@ class AppRoot(AppBase):
 
 class AppPeriodic(AppBase):
 
-    MAX_NUM_GENERATE_PACKETS = 30
+    MAX_NUM_GENERATE_PACKETS = 10
 
     """Send a packet periodically
 

@@ -9,7 +9,7 @@
             "exec_numMotes":                               [50]
         },
         "regular": {
-            "exec_numSlotframesPerRun":                    1000,
+            "exec_numSlotframesPerRun":                    3750,
             "exec_minutesPerRun":                          null,
             "exec_randomSeed":                             "random",
 
@@ -63,7 +63,7 @@
     "logging":                                             "all",
     "log_directory_name":                                  "startTime",
     "post": [
-        "python compute_kpis.py",
-        "python plot.py"
+        "python2 compute_kpis.py",
+        "python2 plot.py"
     ]
 }

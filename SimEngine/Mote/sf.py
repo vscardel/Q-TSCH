@@ -172,7 +172,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         #Q-TSCH parameters
         self.ALFA = 0.9
         self.BETA = 0.5
-        self.EPSLON = 1
+        self.EPSLON = 0.7
 
     # ======================= public ==========================================
 
@@ -608,7 +608,20 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             self.num_rx_cells_elapsed += 1
             if used:
                 self.num_rx_cells_used += 1
-
+    
+    def print_exploitation(self,traffic,queue_ratio,expected_number_of_packets_to_send,list_state_variables):
+        print('exploitation')
+        print('t','q','p')
+        print(traffic,self.discretize_queue_ratio(queue_ratio),self.discretize_expected_number_of_packets_to_send(expected_number_of_packets_to_send))
+        print('table')
+        print(self.Q_table)
+        state_number = self.map_state_to_number(list_state_variables)
+        print('state number')
+        print(state_number)
+        action = self.return_best_q_action(state_number)
+        print('action')
+        print(action)
+        
     def _adapt_to_traffic(self, neighbor, cell_opt):
         # reset retry counter
         assert neighbor in self.retry_count
@@ -627,6 +640,13 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             self.discretize_queue_ratio(queue_ratio),
             self.discretize_expected_number_of_packets_to_send(expected_number_of_packets_to_send)
         ]
+        severity = sum(
+            [
+                traffic,
+                self.discretize_queue_ratio(queue_ratio),
+                self.discretize_expected_number_of_packets_to_send(expected_number_of_packets_to_send)
+            ]
+        )
 
         #exploration or exploitation
         rand_number = random.uniform(0, 1)
@@ -635,6 +655,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         if cell_opt == self.TX_CELL_OPT:
         
             if rand_number <= self.EPSLON:
+
                 if d.MSF_LIM_NUMCELLSUSED_HIGH < self.tx_cell_utilization:
                     #high traffic
                     self.traffic = 1
@@ -664,23 +685,13 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                             cell_options = self.TX_CELL_OPT
                         )
             else:
-                print('exploitation')
-                print('t','q','p')
-                print(traffic,self.discretize_queue_ratio(queue_ratio),self.discretize_expected_number_of_packets_to_send(expected_number_of_packets_to_send))
-                print('table')
-                print(self.Q_table)
-                state_number = self.map_state_to_number(list_state_variables)
-                print('state number')
-                print(state_number)
-                action = self.return_best_q_action(state_number)
-                print('action')
-                print(action)
+                self.print_exploitation(traffic,queue_ratio,expected_number_of_packets_to_send,list_state_variables)
                 if action == 1:
-                    # add one TX cell
+                    # add severity TX cells
                     self.retry_count[neighbor] = 0
                     self._request_adding_cells(
                         neighbor     = neighbor,
-                        num_tx_cells = 1
+                        num_tx_cells = severity
                     )
                 elif action == 0:
                     tx_cells = [cell for cell in self.mote.tsch.get_cells(
@@ -727,24 +738,14 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                             cell_options = self.RX_CELL_OPT
                         )
             else:
-                print('exploitation')
-                print('t','q','p')
-                print(traffic,self.discretize_queue_ratio(queue_ratio),self.discretize_expected_number_of_packets_to_send(expected_number_of_packets_to_send))
-                print('table')
-                print(self.Q_table)
-                state_number = self.map_state_to_number(list_state_variables)
-                print('state number')
-                print(state_number)
-                action = self.return_best_q_action(state_number)
-                print('action')
-                print(action)
+                self.print_exploitation(traffic,queue_ratio,expected_number_of_packets_to_send,list_state_variables)
                 if action == 1:
-                    # add one RX cell
+                    # add severity RX cells
                     self.retry_count[neighbor] = 0
                     self._request_adding_cells(
                         neighbor     = neighbor,
                         num_tx_cells = 0,
-                        num_rx_cells = 1,
+                        num_rx_cells = 4,
                     )
                 elif action == 0:
                     rx_cells = [cell for cell in self.mote.tsch.get_cells(
@@ -787,11 +788,11 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         if sum_variables >= 1 and action == 1:
             return sum_variables
         elif sum_variables == 0 and (action == 0 or action == 2):
-            return 1
+            return 3
         elif sum_variables >= 1 and (action == 0 or action == 2):
             return -sum_variables
         elif sum_variables == 0 and action == 1:
-            return -1
+            return -3
         
     def return_best_q_value(self,state):
         max_q_value = 0
