@@ -172,6 +172,8 @@ class AppRoot(AppBase):
 class AppPeriodic(AppBase):
 
     MAX_NUM_GENERATE_PACKETS = 10
+    NUM_FLOOD_PACKET = 30
+    CHANCE_TO_FLOOD = 0.1
 
     """Send a packet periodically
 
@@ -233,11 +235,21 @@ class AppPeriodic(AppBase):
         self._schedule_transmission()
 
     def _send_random_packets(self):
+        
         if self.mote.rpl.dodagId == None:
             # it seems we left the dodag; stop the transmission
             self.sending_first_packet = True
             return
+
+        #chance to flood
+        rand_number = random.uniform(0, 1)
+
         NUM_PACKETS = random.randint(1,self.MAX_NUM_GENERATE_PACKETS)
+
+        if rand_number <= self.CHANCE_TO_FLOOD:
+            print('flooding')
+            NUM_PACKETS = self.NUM_FLOOD_PACKET
+
         for i in range(NUM_PACKETS):
             self._send_packet(
                 dstIp          = self.mote.rpl.dodagId,
