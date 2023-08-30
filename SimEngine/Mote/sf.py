@@ -704,7 +704,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                         self.retry_count[neighbor] = 0
                         self._request_deleting_cells(
                             neighbor     = neighbor,
-                            num_cells    = 1,
+                            num_cells    = 3 - severity,
                             cell_options = self.TX_CELL_OPT
                         )
         else:
@@ -735,7 +735,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                         self.retry_count[neighbor] = 0
                         self._request_deleting_cells(
                             neighbor     = neighbor,
-                            num_cells    = 3 - severity,
+                            num_cells    = 1,
                             cell_options = self.RX_CELL_OPT
                         )
             else:
