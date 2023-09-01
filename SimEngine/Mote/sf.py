@@ -251,7 +251,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                         }
                     )
                     self.tx_cell_utilization = tx_cell_utilization
-                self._adapt_to_traffic(preferred_parent, self.TX_CELL_OPT)
+                # self._adapt_to_traffic(preferred_parent, self.TX_CELL_OPT)
                 self._reset_cell_counters(self.TX_CELL_OPT)
 
 
@@ -606,6 +606,10 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         print(len(tx_cells))
         print('rx cells')
         print(len(rx_cells))
+        print('tx_queue_size')
+        print(len(self.mote.tsch.txQueue))
+        print('dropped_packets')
+        print(self.mote.tsch.dropped_packets)
         print('--------------------')
 
     def _adapt_to_traffic(self, neighbor, cell_opt):
@@ -641,136 +645,74 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         #exploration or exploitation
         rand_number = random.uniform(0, 1)
 
-
         if cell_opt == self.TX_CELL_OPT:
         
-            if rand_number <= self.EPSLON:
+            action = self.return_best_q_action(self.map_state_to_number(list_state_variables))
 
-                if d.MSF_LIM_NUMCELLSUSED_HIGH < self.tx_cell_utilization:
-                    #high traffic
-                    self.traffic = 1
-                    action = 1
-                    # add one TX cell
-                    self.retry_count[neighbor] = 0
-                    self._request_adding_cells(
-                        neighbor     = neighbor,
-                        num_tx_cells = 1
-                    )
-
-                elif self.tx_cell_utilization < d.MSF_LIM_NUMCELLSUSED_LOW:
-                    #low_traffic
-                    self.traffic = 0
-                    action = 0
-                    tx_cells = [cell for cell in self.mote.tsch.get_cells(
-                            neighbor,
-                            self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
-                        ) if cell.options == [d.CELLOPTION_TX]]
-                    # delete one *TX* cell but we need to keep one dedicated
-                    # cell to our parent at least
-                    if len(tx_cells) > 1:
-                        self.retry_count[neighbor] = 0
-                        self._request_deleting_cells(
-                            neighbor     = neighbor,
-                            num_cells    = 1,
-                            cell_options = self.TX_CELL_OPT
-                        )
-            else:
-                action = self.return_best_q_action(self.map_state_to_number(list_state_variables))
-
-                self.print_exploitation(
-                    traffic,
-                    queue_ratio,
-                    expected_number_of_packets_to_send,
-                    list_state_variables,
-                    action,
-                    tx_cells,
-                    rx_cells
+            self.print_exploitation(
+                traffic,
+                queue_ratio,
+                expected_number_of_packets_to_send,
+                list_state_variables,
+                action,
+                tx_cells,
+                rx_cells
+            )
+            if action == 1:
+                # add severity TX cells
+                self.retry_count[neighbor] = 0
+                self._request_adding_cells(
+                    neighbor     = neighbor,
+                    num_tx_cells = severity
                 )
-                if action == 1:
-                    # add severity TX cells
+            elif action == 0:
+                tx_cells = [cell for cell in self.mote.tsch.get_cells(
+                        neighbor,
+                        self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
+                    ) if cell.options == [d.CELLOPTION_TX]]
+                # delete one *TX* cell but we need to keep one dedicated
+                # cell to our parent at least
+                if len(tx_cells) > 1:
                     self.retry_count[neighbor] = 0
-                    self._request_adding_cells(
+                    self._request_deleting_cells(
                         neighbor     = neighbor,
-                        num_tx_cells = severity
+                        num_cells    = 3 - severity,
+                        cell_options = self.TX_CELL_OPT
                     )
-                elif action == 0:
-                    tx_cells = [cell for cell in self.mote.tsch.get_cells(
-                            neighbor,
-                            self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
-                        ) if cell.options == [d.CELLOPTION_TX]]
-                    # delete one *TX* cell but we need to keep one dedicated
-                    # cell to our parent at least
-                    if len(tx_cells) > 1:
-                        self.retry_count[neighbor] = 0
-                        self._request_deleting_cells(
-                            neighbor     = neighbor,
-                            num_cells    = 3 - severity,
-                            cell_options = self.TX_CELL_OPT
-                        )
         else:
             assert cell_opt == self.RX_CELL_OPT
-
-            if rand_number <= self.EPSLON:
-
-                if d.MSF_LIM_NUMCELLSUSED_HIGH < self.rx_cell_utilization:
-                    self.traffic = 1
-                    action = 1
+            action = self.return_best_q_action(self.map_state_to_number(list_state_variables))
+            self.print_exploitation(
+                traffic,
+                queue_ratio,
+                expected_number_of_packets_to_send,
+                list_state_variables,
+                action,
+                tx_cells,
+                rx_cells
+            )   
+            if action == 1:
+                # add severity RX cells
+                self.retry_count[neighbor] = 0
+                self._request_adding_cells(
+                    neighbor     = neighbor,
+                    num_tx_cells = 0,
+                    num_rx_cells = severity,
+                )
+            elif action == 0:
+                rx_cells = [cell for cell in self.mote.tsch.get_cells(
+                        neighbor,
+                        self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
+                    ) if cell.options == [d.CELLOPTION_RX]]
+                # delete one *RX* cell but we need to keep one dedicated
+                # cell to our parent at least
+                if len(rx_cells) > self.NUM_INITIAL_NEGOTIATED_RX_CELLS:
                     self.retry_count[neighbor] = 0
-                    self._request_adding_cells(
+                    self._request_deleting_cells(
                         neighbor     = neighbor,
-                        num_tx_cells = 0,
-                        num_rx_cells = 1,
+                        num_cells    = 3 - severity,
+                        cell_options = self.RX_CELL_OPT
                     )
-
-                elif self.rx_cell_utilization < d.MSF_LIM_NUMCELLSUSED_LOW:
-                    self.traffic = 0
-                    action = 0
-                    rx_cells = [cell for cell in self.mote.tsch.get_cells(
-                            neighbor,
-                            self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
-                        ) if cell.options == [d.CELLOPTION_RX]]
-                    # delete one *RX* cell but we need to keep one dedicated
-                    # cell to our parent at least
-                    if len(rx_cells) > self.NUM_INITIAL_NEGOTIATED_RX_CELLS:
-                        self.retry_count[neighbor] = 0
-                        self._request_deleting_cells(
-                            neighbor     = neighbor,
-                            num_cells    = 1,
-                            cell_options = self.RX_CELL_OPT
-                        )
-            else:
-                action = self.return_best_q_action(self.map_state_to_number(list_state_variables))
-                self.print_exploitation(
-                    traffic,
-                    queue_ratio,
-                    expected_number_of_packets_to_send,
-                    list_state_variables,
-                    action,
-                    tx_cells,
-                    rx_cells
-                )   
-                if action == 1:
-                    # add severity RX cells
-                    self.retry_count[neighbor] = 0
-                    self._request_adding_cells(
-                        neighbor     = neighbor,
-                        num_tx_cells = 0,
-                        num_rx_cells = severity,
-                    )
-                elif action == 0:
-                    rx_cells = [cell for cell in self.mote.tsch.get_cells(
-                            neighbor,
-                            self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
-                        ) if cell.options == [d.CELLOPTION_RX]]
-                    # delete one *RX* cell but we need to keep one dedicated
-                    # cell to our parent at least
-                    if len(rx_cells) > self.NUM_INITIAL_NEGOTIATED_RX_CELLS:
-                        self.retry_count[neighbor] = 0
-                        self._request_deleting_cells(
-                            neighbor     = neighbor,
-                            num_cells    = 3 - severity,
-                            cell_options = self.RX_CELL_OPT
-                        )
 
         #computar variaveis do proximo estado
         self.prev_prob = self.compute_prob_poission(10)

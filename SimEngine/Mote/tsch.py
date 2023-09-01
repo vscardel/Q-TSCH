@@ -87,6 +87,7 @@ class Tsch(object):
         self.array_packets_sent_in_interval = []        
         self.INTERVAL = 10
         self.LAMBDA = 0
+        self.dropped_packets = 0
 
         assert self.settings.phy_numChans <= len(d.TSCH_HOPPING_SEQUENCE)
         self.hopping_sequence = (
@@ -388,6 +389,7 @@ class Tsch(object):
             # my TX queue is full
 
             # drop
+            self.dropped_packets = self.dropped_packets + 1
             self.mote.drop_packet(
                 packet  = packet,
                 reason  = SimEngine.SimLog.DROPREASON_TXQUEUE_FULL
@@ -988,6 +990,7 @@ class Tsch(object):
         tsCurrent = asn % self.settings.tsch_slotframeLength
 
         #logic to compute the lamdda to derive de poisson prob distribution
+
         slotframe_count = self.engine.slotframe_count
         if slotframe_count == 0:
             self.current_slotframe = 0
@@ -1000,6 +1003,10 @@ class Tsch(object):
                     self.array_packets_sent_in_interval.pop(0)
                 self.num_packets_sent_in_slotframe = 0
                 self.current_slotframe = slotframe_count
+                preferred_parent = self.mote.rpl.getPreferredParent()
+                if preferred_parent:
+                    self.mote.sf._adapt_to_traffic(self.mote.rpl.getPreferredParent(),self.mote.sf.TX_CELL_OPT)
+                self.dropped_packets = 0
             else:
                 #is in the same slotframe. Do nothing
                 pass
