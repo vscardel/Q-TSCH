@@ -202,8 +202,8 @@ class DiscreteEventEngine(threading.Thread):
 
     def join(self):
         super(DiscreteEventEngine, self).join()
-        # if self.exc:
-        #     raise self.exc
+        if self.exc:
+            raise self.exc
 
     #======================== public ==========================================
 

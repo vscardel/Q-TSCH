@@ -551,7 +551,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     }
                 )
                 self.rx_cell_utilization = rx_cell_utilization
-            self._adapt_to_traffic(preferred_parent, self.RX_CELL_OPT)
+            # self._adapt_to_traffic(preferred_parent, self.RX_CELL_OPT)
             self._reset_cell_counters(self.RX_CELL_OPT)
             ####################
             #check state variables
