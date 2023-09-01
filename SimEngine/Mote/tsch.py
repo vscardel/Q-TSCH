@@ -1006,6 +1006,7 @@ class Tsch(object):
                 preferred_parent = self.mote.rpl.getPreferredParent()
                 if preferred_parent:
                     self.mote.sf._adapt_to_traffic(self.mote.rpl.getPreferredParent(),self.mote.sf.TX_CELL_OPT)
+                    # self.mote.sf._adapt_to_traffic(self.mote.rpl.getPreferredParent(),self.mote.sf.RX_CELL_OPT)
                 self.dropped_packets = 0
             else:
                 #is in the same slotframe. Do nothing

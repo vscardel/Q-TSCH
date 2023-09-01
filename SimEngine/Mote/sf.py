@@ -169,6 +169,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.traffic = 0
         self.queue_ratio = 0
         self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
+        self.MAX_CELLS = 50
         #Q-TSCH parameters
         self.ALFA = self.settings.ALFA
         self.BETA = self.settings.BETA
@@ -642,9 +643,6 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
         ) if cell.options == [d.CELLOPTION_TX]]
 
-        #exploration or exploitation
-        rand_number = random.uniform(0, 1)
-
         if cell_opt == self.TX_CELL_OPT:
         
             action = self.return_best_q_action(self.map_state_to_number(list_state_variables))
@@ -676,7 +674,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     self.retry_count[neighbor] = 0
                     self._request_deleting_cells(
                         neighbor     = neighbor,
-                        num_cells    = 3 - severity,
+                        num_cells    = 2 - severity,
                         cell_options = self.TX_CELL_OPT
                     )
         else:
@@ -710,7 +708,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     self.retry_count[neighbor] = 0
                     self._request_deleting_cells(
                         neighbor     = neighbor,
-                        num_cells    = 3 - severity,
+                        num_cells    = 2 - severity,
                         cell_options = self.RX_CELL_OPT
                     )
 
@@ -725,7 +723,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             self.discretize_queue_ratio(self.prev_queue_ratio),
             self.discretize_expected_number_of_packets_to_send(prev_expected_number_of_packets_to_send)
         ]
-        self.compute_q_table(list_state_variables,list_prev_state_variables,action,cell_opt)
+        self.compute_q_table(list_state_variables,list_prev_state_variables,action,cell_opt,tx_cells)
     
     def map_state_to_number(self,list_discrete_variables):
         state = 0
@@ -735,7 +733,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             state += int(c) * 2**(2-index)
         return state
     
-    def compute_reward(self,list_state_variables,action,cell_opt):
+    def compute_reward(self,list_state_variables,action,cell_opt,tx_cells):
 
         traffic = list_state_variables[0]
         queue = list_state_variables[1]
@@ -744,6 +742,8 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         if traffic == 1 and queue == 0 and packet == 0:
             print('********************')
         sum_variables = sum(list_state_variables)
+        # if len(tx_cells) > self.MAX_CELLS and action == 1:
+        #     return -1
         if sum_variables >= 1 and action == 1:
             return sum_variables
         elif sum_variables == 0 and action == 2:
@@ -774,11 +774,11 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                 max_q_value = current_value
         return best_action
     
-    def compute_q_table(self,list_state_variables,list_prev_state_variables,action,cell_opt):
+    def compute_q_table(self,list_state_variables,list_prev_state_variables,action,cell_opt,tx_cells):
         curr_state = self.map_state_to_number(list_state_variables)
         next_state = self.map_state_to_number(list_prev_state_variables)
         #compute deltaQ
-        reward = self.compute_reward(list_state_variables,action,cell_opt)
+        reward = self.compute_reward(list_state_variables,action,cell_opt,tx_cells)
         # print(reward)
         deltaQ = reward + self.BETA * self.return_best_q_value(next_state)
         #compute Q_table[curr_state][action]
