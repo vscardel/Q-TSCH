@@ -45,7 +45,7 @@
 
             "ALFA":0.9,
             "BETA":0.5,
-            "EPSLON":0.9,
+            "EPSLON":1,
 
             "radio_stats_log_period_s":                    60,
 
