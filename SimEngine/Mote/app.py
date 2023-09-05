@@ -173,7 +173,7 @@ class AppPeriodic(AppBase):
 
     MAX_NUM_GENERATE_PACKETS = 10
     NUM_FLOOD_PACKET = 30
-    CHANCE_TO_FLOOD = 0.1
+    CHANCE_TO_FLOOD = 2
 
     """Send a packet periodically
 

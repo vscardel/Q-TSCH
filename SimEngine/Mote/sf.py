@@ -145,7 +145,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
 
     #Q-TSCH constants
     NUM_ACTIONS = 3
-    NUM_STATES = 8
+    NUM_STATES = 4
 
     def __init__(self, mote):
         # initialize parent class
@@ -170,6 +170,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.queue_ratio = 0
         self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
         self.MAX_CELLS = 50
+        self.sendEb = False
         #Q-TSCH parameters
         self.ALFA = self.settings.ALFA
         self.BETA = self.settings.BETA
@@ -447,7 +448,6 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         if slotframe:
             cells = slotframe.get_cells_by_mac_addr(None)
             if cells:
-                assert len(cells) == 1
                 assert cells[0].options == [d.CELLOPTION_RX]
                 ret = cells[0]
             else:
@@ -593,7 +593,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         print('Mote Id')
         print(self.mote.id)
         print('exploitation')
-        print('t','q','p')
+        print('q','p')
         print(traffic,self.discretize_queue_ratio(queue_ratio),self.discretize_expected_number_of_packets_to_send(expected_number_of_packets_to_send))
         print('table')
         print(self.Q_table)
@@ -611,6 +611,8 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         print(len(self.mote.tsch.txQueue))
         print('dropped_packets')
         print(self.mote.tsch.dropped_packets)
+        print('num EBs')
+        print(self.mote.tsch.numEb)
         print('--------------------')
 
     def _adapt_to_traffic(self, neighbor, cell_opt):
@@ -619,6 +621,8 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         if self.retry_count[neighbor] != -1:
             # we're in the middle of a 6P transaction; try later
             return
+
+        #prioritize nodes that are not synced to listen to EBs
 
         #action taked by the node --> 0 is remove one cell, 1 is add one cell and 2 is keep as it is
         action = 2
@@ -656,7 +660,42 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                 tx_cells,
                 rx_cells
             )
-            if action == 1:
+            #send EB
+            if action == 2:
+
+                slotframe = self.mote.tsch.slotframes[self.SLOTFRAME_HANDLE_AUTONOMOUS_CELLS]
+                num1 = random.randint(0, 200)
+                num2 = random.randint(0,100)
+
+                slot_offset = int(1 + (num1 % (slotframe.length - 1)))
+                channel_offset = int(num2 % self.settings.phy_numChans)
+
+                autonomous_cells = [cell for cell in self.mote.tsch.get_cells(
+                    None,
+                    self.SLOTFRAME_HANDLE_AUTONOMOUS_CELLS
+                )]
+
+                if len(autonomous_cells) <= 10:
+
+                    add_cell = True
+                    for cell in autonomous_cells:
+                        if cell.slot_offset == slot_offset and cell.channel_offset == channel_offset:
+                            add_cell = False
+                            break
+
+                    if add_cell:
+                        self.mote.tsch.addCell(
+                            slotOffset       = slot_offset,
+                            channelOffset    = channel_offset,
+                            neighbor         = None,
+                            cellOptions      = [
+                                d.LINKTYPE_ADVERTISING,
+                                d.CELLOPTION_TX,
+                            ],
+                            slotframe_handle = self.SLOTFRAME_HANDLE_AUTONOMOUS_CELLS
+                        )
+                    
+            elif action == 1:
                 # add severity TX cells
                 self.retry_count[neighbor] = 0
                 self._request_adding_cells(
@@ -674,7 +713,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     self.retry_count[neighbor] = 0
                     self._request_deleting_cells(
                         neighbor     = neighbor,
-                        num_cells    = 2 - severity,
+                        num_cells    = 1,
                         cell_options = self.TX_CELL_OPT
                     )
         else:
@@ -689,13 +728,13 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                 tx_cells,
                 rx_cells
             )   
-            if action == 1:
-                # add severity RX cells
+            if action == 2:
+                self.sendEb = True
+            elif action == 1:
                 self.retry_count[neighbor] = 0
                 self._request_adding_cells(
                     neighbor     = neighbor,
-                    num_tx_cells = 0,
-                    num_rx_cells = severity,
+                    num_tx_cells = severity
                 )
             elif action == 0:
                 rx_cells = [cell for cell in self.mote.tsch.get_cells(
@@ -708,7 +747,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     self.retry_count[neighbor] = 0
                     self._request_deleting_cells(
                         neighbor     = neighbor,
-                        num_cells    = 2 - severity,
+                        num_cells    = 1,
                         cell_options = self.RX_CELL_OPT
                     )
 
@@ -733,29 +772,23 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             state += int(c) * 2**(2-index)
         return state
     
+    #quando remover uma celula
     def compute_reward(self,list_state_variables,action,cell_opt,tx_cells):
 
-        traffic = list_state_variables[0]
         queue = list_state_variables[1]
         packet = list_state_variables[2]
-
-        if traffic == 1 and queue == 0 and packet == 0:
-            print('********************')
-        sum_variables = sum(list_state_variables)
-        # if len(tx_cells) > self.MAX_CELLS and action == 1:
-        #     return -1
-        if sum_variables >= 1 and action == 1:
-            return sum_variables
-        elif sum_variables == 0 and action == 2:
-            return 3
-        elif sum_variables == 0 and action == 0:
+        
+        if queue == 1 and packet == 1 and action == 1:
             return 1
-        elif sum_variables >= 1 and (action == 0 or action == 2):
-            return -sum_variables
-        elif sum_variables == 0 and action == 1:
-            return -3
-
-
+        elif queue == 1 and action == 1:
+            return 1
+        elif queue == 0 and packet == 1 and action == 1:
+            return 1
+        elif queue == 0 and packet == 0 and (action == 0 or action == 2):
+            return 1
+        else:
+            return 0
+        
     def return_best_q_value(self,state):
         max_q_value = 0
         for action in range(self.NUM_ACTIONS):
@@ -767,11 +800,16 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
     def return_best_q_action(self,state):
         max_q_value = -100
         best_action = 0
+        sum_actions = 0
         for action in range(self.NUM_ACTIONS):
             current_value = self.Q_table[state][action]
+            sum_actions = sum_actions + current_value
             if current_value > max_q_value:
                 best_action = action
                 max_q_value = current_value
+        #choose random action
+        if sum_actions == 0: 
+            return random.choice((0,1,2))
         return best_action
     
     def compute_q_table(self,list_state_variables,list_prev_state_variables,action,cell_opt,tx_cells):
@@ -864,7 +902,8 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
 
     def _unlock_cells(self, cell_list):
         for cell in cell_list:
-            self.locked_slots.remove(cell[u'slotOffset'])
+            if cell['slotOffset'] in self.locked_slots:
+                self.locked_slots.remove(cell[u'slotOffset'])
 
     def _add_cells(self, neighbor, cell_list, cell_options):
         try:

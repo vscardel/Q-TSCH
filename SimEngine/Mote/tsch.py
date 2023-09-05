@@ -72,6 +72,7 @@ class Tsch(object):
         self.isSync           = False
         self.join_proxy       = None
         self.iAmSendingEBs    = False
+        self.numEb = 0
         self.clock            = Clock(self.mote)
         self.next_seqnum      = 0
         self.received_eb_list = {} # indexed by source mac address
@@ -251,7 +252,7 @@ class Tsch(object):
         self.iAmSendingEBs = True
 
     def stopSendingEBs(self):
-        self.iAmSendingEBs = True
+        self.iAmSendingEBs = False
 
     def schedule_next_listeningForEB_cell(self):
 
@@ -945,6 +946,8 @@ class Tsch(object):
                                         ]
                                     )
                                 ):
+                                print('MANDANDO EB')
+                                self.numEb = self.numEb + 1
                                 # we can send the EB on this link (cell)
                                 packet_to_send = _packet_to_send
                                 active_cell = cell
@@ -1005,9 +1008,10 @@ class Tsch(object):
                 self.current_slotframe = slotframe_count
                 preferred_parent = self.mote.rpl.getPreferredParent()
                 if preferred_parent:
-                    self.mote.sf._adapt_to_traffic(self.mote.rpl.getPreferredParent(),self.mote.sf.TX_CELL_OPT)
-                    # self.mote.sf._adapt_to_traffic(self.mote.rpl.getPreferredParent(),self.mote.sf.RX_CELL_OPT)
+                    self.mote.sf._adapt_to_traffic(preferred_parent,self.mote.sf.TX_CELL_OPT)
                 self.dropped_packets = 0
+                if self.mote.sf.sendEb:
+                    self.mote.sf.sendEb = False
             else:
                 #is in the same slotframe. Do nothing
                 pass
@@ -1163,6 +1167,9 @@ class Tsch(object):
     # EBs
 
     def _decided_to_send_eb(self):
+        #scheduling function decided that it's time to send EB
+        if self.mote.sf.sendEb:
+            return True
         # short-hand
         prob = float(self.settings.tsch_probBcast_ebProb)
         n    = 1 + len(self.neighbor_table)
