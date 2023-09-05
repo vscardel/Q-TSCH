@@ -172,7 +172,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         #Q-TSCH parameters
         self.ALFA = self.settings.ALFA
         self.BETA = self.settings.BETA
-        self.EPSLON = self.settings.EPSLON
+        self.EPSLON = 1
 
     # ======================= public ==========================================
 
