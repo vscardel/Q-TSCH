@@ -664,8 +664,6 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             self.discretize_min_threshold_cell(num_tx_cells)
         ]
 
-        severity = sum(list_state_variables) - self.discretize_max_threshold_cell(num_tx_cells)
-
         if cell_opt == self.TX_CELL_OPT:
         
             state_number = self.map_state_to_number(list_state_variables)
@@ -687,9 +685,12 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                 pass
             elif action == 1:
                 self.retry_count[neighbor] = 0
+                num_add_cells = max(0, self.MAX_CELLS - num_tx_cells)
+                if num_add_cells == 0:
+                    num_add_cells = 1
                 self._request_adding_cells(
                     neighbor     = neighbor,
-                    num_tx_cells = severity
+                    num_tx_cells = num_add_cells
                 )
             elif action == 0:
                 tx_cells = [cell for cell in self.mote.tsch.get_cells(
@@ -700,9 +701,12 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                 # cell to our parent at least
                 if len(tx_cells) > 1:
                     self.retry_count[neighbor] = 0
+                    num_remove_cells = max(0, self.MIN_CELLS - num_tx_cells)
+                    if num_remove_cells == 0:
+                        num_remove_cells = 1
                     self._request_deleting_cells(
                         neighbor     = neighbor,
-                        num_cells    = 1,
+                        num_cells    = num_remove_cells,
                         cell_options = self.TX_CELL_OPT
                     )
         # else:
@@ -744,7 +748,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.prev_prob = self.compute_prob_poission(10)
         self.prev_queue_ratio = self.compute_queue_ratio()
         self.prev_traffic = self.traffic
-        self.prev_tx_cells = tx_cells
+        self.prev_tx_cells = len(tx_cells)
         prev_expected_number_of_packets_to_send = self.return_max_num_packet_by_prob(self.prev_prob)
         #computa Q(s,a) usando r(s,a)
         list_prev_state_variables = [
