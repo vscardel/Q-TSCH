@@ -170,7 +170,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.traffic = 0
         self.queue_ratio = 0
         self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
-        self.MAX_CELLS = 10
+        self.MAX_CELLS = 12
         self.sendEb = False
         self.MIN_CELLS = 5
         #Q-TSCH parameters
@@ -664,7 +664,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             self.discretize_min_threshold_cell(num_tx_cells)
         ]
 
-        # severity = sum(list_state_variables)
+        severity = sum(list_state_variables) - self.discretize_max_threshold_cell(num_tx_cells)
 
         if cell_opt == self.TX_CELL_OPT:
         
@@ -689,7 +689,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                 self.retry_count[neighbor] = 0
                 self._request_adding_cells(
                     neighbor     = neighbor,
-                    num_tx_cells = 1
+                    num_tx_cells = severity
                 )
             elif action == 0:
                 tx_cells = [cell for cell in self.mote.tsch.get_cells(
@@ -782,12 +782,12 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             reward = reward - 1
         
         elif queue == 1 and packet == 1 and action == 1:
-            reward = reward + 1
+            reward = reward + 2
         elif queue == 1 and action == 1:
-            reward = reward + 0.5
+            reward = reward +  1
         elif queue == 0 and packet == 1 and action == 1:
-            reward = reward + 0.5
-        elif queue == 0 and packet == 0 and (action == 0 or action == 2):
+            reward = reward + 1
+        elif queue == 0 and packet == 0 and action == 2:
             reward =  reward + 1
         
         return reward
