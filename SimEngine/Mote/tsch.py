@@ -979,13 +979,15 @@ class Tsch(object):
             ):
             del packet_to_send[u'backoff_remaining_delay']
         return active_cell, packet_to_send
-
+    
     def _schedule_next_active_slot(self):
 
         assert self.getIsSync()
 
         asn       = self.engine.getAsn()
         tsCurrent = asn % self.settings.tsch_slotframeLength
+        max_num_slotframes = self.settings.exec_numSlotframesPerRun-1
+
 
         #logic to compute the lamdda to derive de poisson prob distribution
         slotframe_count = self.engine.slotframe_count
