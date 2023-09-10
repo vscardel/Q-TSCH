@@ -667,8 +667,14 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         if cell_opt == self.TX_CELL_OPT:
         
             state_number = self.map_state_to_number(list_state_variables)
-            
-            action = self.return_best_q_action(state_number)
+
+            rand_number = random.uniform(0, 1)
+
+            #random action
+            if self.EPSLON <= rand_number:
+                random_action = random.choice([0,1,2])
+            else:
+                action = self.return_best_q_action(state_number)
 
             self.print_exploitation(
                 traffic,
@@ -709,41 +715,6 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                         num_cells    = num_remove_cells,
                         cell_options = self.TX_CELL_OPT
                     )
-        # else:
-        #     assert cell_opt == self.RX_CELL_OPT
-        #     action = self.return_best_q_action(self.map_state_to_number(list_state_variables))
-        #     self.print_exploitation(
-        #         traffic,
-        #         queue_ratio,
-        #         expected_number_of_packets_to_send,
-        #         list_state_variables,
-        #         action,
-        #         tx_cells,
-        #         rx_cells
-        #     )   
-        #     if action == 2:
-        #         self.sendEb = True
-        #     elif action == 1:
-        #         self.retry_count[neighbor] = 0
-        #         self._request_adding_cells(
-        #             neighbor     = neighbor,
-        #             num_tx_cells = severity
-        #         )
-        #     elif action == 0:
-        #         rx_cells = [cell for cell in self.mote.tsch.get_cells(
-        #                 neighbor,
-        #                 self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
-        #             ) if cell.options == [d.CELLOPTION_RX]]
-        #         # delete one *RX* cell but we need to keep one dedicated
-        #         # cell to our parent at least
-        #         if len(rx_cells) > self.NUM_INITIAL_NEGOTIATED_RX_CELLS:
-        #             self.retry_count[neighbor] = 0
-        #             self._request_deleting_cells(
-        #                 neighbor     = neighbor,
-        #                 num_cells    = 1,
-        #                 cell_options = self.RX_CELL_OPT
-        #             )
-
         #computar variaveis do proximo estado
         self.prev_prob = self.compute_prob_poission(10)
         self.prev_queue_ratio = self.compute_queue_ratio()

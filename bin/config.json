@@ -27,6 +27,7 @@
           "app":"AppPeriodic",
           "ALFA":0.7,
           "BETA":0.3,
+          "EPSLON":0.3,
           "phy_numChans":16,
           "exec_numSlotframesPerRun":3750,
           "fragmentation":"FragmentForwarding",
@@ -34,21 +35,20 @@
           "fragmentation_ff_discard_vrb_entry_policy":[
              
           ],
-          "tsch_slotDuration":                           0.010,
-          "tsch_slotframeLength":                        101,
-          "tsch_probBcast_ebProb":                       0.33,
-          "tsch_clock_max_drift_ppm":                    30,
-          "tsch_clock_frequency":                        32768,
-          "tsch_keep_alive_interval":                    10,
-          "tsch_tx_queue_size":                          10,
-          "tsch_max_tx_retries":                         5,
+         "tsch_slotDuration":                           0.010,
+         "tsch_slotframeLength":                        101,
+         "tsch_probBcast_ebProb":                       0.33,
+         "tsch_clock_max_drift_ppm":                    30,
+         "tsch_clock_frequency":                        32768,
+         "tsch_keep_alive_interval":                    10,
+         "tsch_tx_queue_size":                          5,
+         "tsch_max_tx_retries":                         4,
           
           "conn_class":"Random",
           "conn_random_init_min_neighbors":3,
           "conn_random_square_side":2.0,
           "sixlowpan_reassembly_buffers_num":1,
-          "sf_class":"MSF",
-          "EPSLON":0.9
+          "sf_class":"MSF"
        },
        "combination":{
           "exec_numMotes":[
