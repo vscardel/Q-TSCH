@@ -62,9 +62,10 @@ class TrickleTimer(object):
         self.engine.removeFutureEvent(self.unique_tag_base + u'_at_t')
         self.state = self.STATE_STOPPED
 
-    def reset(self):
+    def reset(self):        
         if self.state == self.STATE_STOPPED:
             return
+        
 
         # this method is expected to be called in an event of "inconsistency"
         #
@@ -83,6 +84,7 @@ class TrickleTimer(object):
             pass
 
     def increment_counter(self):
+
         # this method is expected to be called when a "consistent" transmission
         # is heard.
         #
@@ -144,7 +146,7 @@ class TrickleTimer(object):
             #   5.  When the interval I expires, Trickle doubles the interval
             #       length.  If this new interval length would be longer than
             #       the time specified by Imax, Trickle sets the interval
-            #       length I to be the time specified by Imax.
+            #       length I to be the time specified by Imax.            
             self.interval = self.interval * 2
             if self.max_interval < self.interval:
                 self.interval = self.max_interval

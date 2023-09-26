@@ -98,6 +98,7 @@ class Rpl(object):
             # now start a new RPL instance; reset the timer as per Section 8.3 of
             # RFC 6550
             self.trickle_timer.reset()
+            #call the scheduling function to update MAX_NUM_CELLS
         else:
             if self.settings.rpl_of:
                 # update OF with one specified in config.json
@@ -163,6 +164,7 @@ class Rpl(object):
 
             # reset trickle timer to inform new rank quickly
             self.trickle_timer.reset()
+            #call the scheduling function to update MAX_NUM_CELLS
 
         # trigger 6P ADD if parent changed
         self.mote.sf.indication_parent_change(old_preferred, new_preferred)
@@ -202,6 +204,7 @@ class Rpl(object):
             elif packet[u'net'][u'dstIp'] == d.IPV6_ALL_RPL_NODES_ADDRESS:
                 # broadcast DIS
                 self.trickle_timer.reset()
+                #call the scheduling function to update MAX_NUM_CELLS
             else:
                 # shouldn't happen
                 assert False
@@ -336,6 +339,7 @@ class Rpl(object):
             else:
                 # if the DIO has the infinite rank, reset the Trickle timer
                 self.trickle_timer.reset()
+                #call the scheduling function to update MAX_NUM_CELLS
 
         # feed our OF with the received DIO
         self.of.update(packet)
@@ -836,6 +840,7 @@ class RplOF0(RplOFBase):
 
             # reset Trickle Timer
             self.rpl.trickle_timer.reset()
+            #call the scheduling function to update MAX_NUM_CELLS
         elif (
                 (new_parent is None)
                 and

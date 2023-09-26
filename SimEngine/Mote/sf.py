@@ -176,7 +176,9 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         #Q-TSCH parameters
         self.ALFA = self.settings.ALFA
         self.BETA = self.settings.BETA
-        self.EPSLON = self.settings.EPSLON
+        self.NUM_TRAIN_EPISODES = 10
+        self.MAX_STEPS = 99
+        self.IS_TRAINING = True
 
     # ======================= public ==========================================
 
@@ -223,7 +225,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         pass
 
     def compute_queue_ratio(self):
-        return len(self.mote.tsch.txQueue)/float(self.settings.tsch_tx_queue_size)
+        return self.mote.tsch.AVERAGE_QUEUE_LENGTH
 
     def indication_tx_cell_elapsed(self, cell, sent_packet):
 
@@ -571,7 +573,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         return 0
 
     def discretize_queue_ratio(self,queue_ratio):
-        if queue_ratio <= 0.5:
+        if queue_ratio <= 1.5:
             return 0
         return 1
     
@@ -616,10 +618,12 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         print(len(rx_cells))
         print('tx_queue_size')
         print(len(self.mote.tsch.txQueue))
-        print('dropped_packets')
-        print(self.mote.tsch.dropped_packets)
         print('num EBs')
         print(self.mote.tsch.numEb)
+        print("average queue size")
+        print(self.mote.tsch.AVERAGE_QUEUE_LENGTH)
+        print("average packets sent in interval")
+        print(self.mote.tsch.average_dropped_packets_in_interval)
         print('--------------------')
 
     def discretize_max_threshold_cell(self,num_cells):
@@ -632,7 +636,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             return 1
         return 0
 
-    def _adapt_to_traffic(self, neighbor, cell_opt):
+    def _adapt_to_traffic(self, neighbor, cell_opt,is_training):
         # reset retry counter
         assert neighbor in self.retry_count
         if self.retry_count[neighbor] != -1:
@@ -648,9 +652,8 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             neighbor,
             self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
         ) if cell.options == [d.CELLOPTION_RX]]
-
+        
         #action taked by the node --> 0 is remove one cell, 1 is add one cell and 2 is keep as it is
-        action = 2
         #inicializar variaveis do estado atual
         traffic = self.prev_traffic
         queue_ratio = self.prev_queue_ratio
@@ -669,10 +672,9 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             state_number = self.map_state_to_number(list_state_variables)
 
             rand_number = random.uniform(0, 1)
-
             #random action
-            if self.EPSLON <= rand_number:
-                random_action = random.choice([0,1,2])
+            if self.mote.tsch.EPSLON <= rand_number:
+                action = random.choice([0,1,2])
             else:
                 action = self.return_best_q_action(state_number)
 
@@ -691,9 +693,9 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                 pass
             elif action == 1:
                 self.retry_count[neighbor] = 0
-                num_add_cells = max(0, self.MAX_CELLS - num_tx_cells)
-                if num_add_cells == 0:
-                    num_add_cells = 1
+                num_add_cells = 1
+                if self.mote.tsch.AVERAGE_QUEUE_LENGTH:
+                    num_add_cells = int(self.mote.tsch.AVERAGE_QUEUE_LENGTH)
                 self._request_adding_cells(
                     neighbor     = neighbor,
                     num_tx_cells = num_add_cells
@@ -707,27 +709,31 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                 # cell to our parent at least
                 if len(tx_cells) > 1:
                     self.retry_count[neighbor] = 0
-                    num_remove_cells = max(0, self.MIN_CELLS - num_tx_cells)
-                    if num_remove_cells == 0:
-                        num_remove_cells = 1
+
+                    num_remove_cell = 1
+                    for cell in tx_cells:
+                        if (self.engine.slotframe_count - cell.slotframe_inserted) > 100 and cell.num_tx == 0:
+                            num_remove_cell = num_remove_cell + 1
+                        else:
+                            cell.slotframe_inserted = self.engine.slotframe_count
                     self._request_deleting_cells(
                         neighbor     = neighbor,
-                        num_cells    = num_remove_cells,
+                        num_cells    = num_remove_cell,
                         cell_options = self.TX_CELL_OPT
                     )
         #computar variaveis do proximo estado
         self.prev_prob = self.compute_prob_poission(10)
         self.prev_queue_ratio = self.compute_queue_ratio()
-        self.prev_traffic = self.traffic
         self.prev_tx_cells = len(tx_cells)
         prev_expected_number_of_packets_to_send = self.return_max_num_packet_by_prob(self.prev_prob)
         #computa Q(s,a) usando r(s,a)
-        list_prev_state_variables = [
-            self.prev_traffic,
+        list_next_state_variables = [
             self.discretize_queue_ratio(self.prev_queue_ratio),
-            self.discretize_expected_number_of_packets_to_send(prev_expected_number_of_packets_to_send)
+            self.discretize_expected_number_of_packets_to_send(prev_expected_number_of_packets_to_send),
+            self.discretize_max_threshold_cell(self.prev_tx_cells),
+            self.discretize_min_threshold_cell(self.prev_tx_cells)
         ]
-        self.compute_q_table(list_state_variables,list_prev_state_variables,action,cell_opt,tx_cells)
+        self.compute_q_table(list_state_variables,list_next_state_variables,action,cell_opt,tx_cells)
     
     def map_state_to_number(self,list_discrete_variables):
         state = 0
@@ -746,24 +752,26 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         
         # Initialize with a small negative reward for exploration
         reward = -0.01
-        
-        if threshold_max_cells and action == 1:
-            reward = reward - 1
-        if threshold_max_cells and action == 0:
+
+        if queue == 0:
             reward = reward + 2
-        if threshold_min_cells and action == 1:
+        else:
+            reward = reward - 1
+
+        if packet == 1 and action == 1:
             reward = reward + 1
-        if threshold_min_cells and action == 0:
+        elif packet == 0 and action == 1:
+            reward = reward - 1
+        elif packet == 0 and action == 0:
+            reward = reward + 1
+        elif packet == 1 and action == 0:
             reward = reward - 1
         
-        elif queue == 1 and packet == 1 and action == 1:
-            reward = reward + 2
-        elif queue == 1 and action == 1:
-            reward = reward +  1
-        elif queue == 0 and packet == 1 and action == 1:
-            reward = reward + 1
-        elif queue == 0 and packet == 0 and action == 2:
-            reward =  reward + 1
+
+        if self.mote.tsch.average_dropped_packets_in_interval <= 0.1:
+            reward += 3
+        else:
+            reward -= 3
         
         return reward
         
@@ -790,9 +798,9 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             return random.choice((0,1,2))
         return best_action
     
-    def compute_q_table(self,list_state_variables,list_prev_state_variables,action,cell_opt,tx_cells):
+    def compute_q_table(self,list_state_variables,list_next_state_variables,action,cell_opt,tx_cells):
         curr_state = self.map_state_to_number(list_state_variables)
-        next_state = self.map_state_to_number(list_prev_state_variables)
+        next_state = self.map_state_to_number(list_next_state_variables)
         #compute deltaQ
         reward = self.compute_reward(list_state_variables,action,cell_opt,tx_cells)
         # print(reward)
@@ -1000,7 +1008,6 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         ):
 
         occupied_cells = [cell for cell in self.mote.tsch.get_cells(neighbor, self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS) if cell.options == cell_options]
-
         cell_list = [
             {
                 'slotOffset'   : cell.slot_offset,
@@ -1253,7 +1260,6 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             num_cells,
             cell_options
         ):
-
         # prepare cell_list to send
         cell_list = self._create_occupied_cell_list(
             neighbor      = neighbor,

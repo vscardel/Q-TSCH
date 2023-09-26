@@ -127,7 +127,7 @@ class Sixlowpan(object):
         if goOn:
             frags = self.fragmentation.fragmentPacket(packet)
 
-        # enqueue each fragment
+        # enqueue each frag-ment
         if goOn:
             for frag in frags:
                 self.mote.tsch.enqueue(frag)

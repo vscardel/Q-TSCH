@@ -13,6 +13,7 @@ from past.utils import old_div
 import copy
 from itertools import chain
 import random
+import numpy as np
 
 import netaddr
 
@@ -84,11 +85,22 @@ class Tsch(object):
 
         #Q-TSCH variables
         self.num_packets_sent_in_slotframe = 0
+        self.AVERAGE_QUEUE_LENGTH = 0
         self.current_slotframe = -1
-        self.array_packets_sent_in_interval = []        
+        self.array_packets_sent_in_interval = []
+        self.array_queue_sizes_on_slotframes = []        
         self.INTERVAL = 10
         self.LAMBDA = 0
         self.dropped_packets = 0
+        self.average_dropped_packets_in_interval = 0
+        self.CURRENT_EPISODE = -1
+
+        self.EPSLON = None
+        self.MAX_EPSLON = 1.0           
+        self.MIN_EPSLON = 0.05           
+        self.EPSLON_DECAY_RATE = 0.0005  
+
+        self.IS_TRAINING = True
 
         assert self.settings.phy_numChans <= len(d.TSCH_HOPPING_SEQUENCE)
         self.hopping_sequence = (
@@ -323,6 +335,7 @@ class Tsch(object):
             slotOffset,
             channelOffset,
             cellOptions,
+            self.engine.slotframe_count,
             neighbor,
             link_type
         )
@@ -997,25 +1010,47 @@ class Tsch(object):
         slotframe_count = self.engine.slotframe_count
         if slotframe_count == 0:
             self.current_slotframe = 0
+        #last one
+        elif slotframe_count == 10299:
+            with open('q_learning_rable.npy{0}'.format(self.mote.Id), 'wb') as f:
+                np.save(self.mote.sf.Q_table)
         else:
             #switch slotframes
             if slotframe_count != self.current_slotframe:
+
                 self.array_packets_sent_in_interval.append(self.num_packets_sent_in_slotframe)
+
+                self.array_queue_sizes_on_slotframes.append(len(self.txQueue))
+
                 if len(self.array_packets_sent_in_interval) == self.INTERVAL:
+
                     self.LAMBDA = sum(self.array_packets_sent_in_interval)/float(self.INTERVAL)
+
+                    self.AVERAGE_QUEUE_LENGTH = sum(self.array_queue_sizes_on_slotframes)/float(self.INTERVAL)
+
                     self.array_packets_sent_in_interval.pop(0)
+
+                    self.array_queue_sizes_on_slotframes.pop(0)
+
+                    self.average_dropped_packets_in_interval = self.dropped_packets/10
+
                 self.num_packets_sent_in_slotframe = 0
                 self.current_slotframe = slotframe_count
+
                 preferred_parent = self.mote.rpl.getPreferredParent()
+
                 if preferred_parent:
-                    self.mote.sf._adapt_to_traffic(preferred_parent,self.mote.sf.TX_CELL_OPT)
-                self.dropped_packets = 0
-                if self.mote.sf.sendEb:
-                    self.mote.sf.sendEb = False
+
+                    #comeco de um novo episodio
+                    if slotframe_count % 100 == 0:
+                        self.EPSLON = self.MIN_EPSLON + (self.MAX_EPSLON - self.MIN_EPSLON)*np.exp(-self.EPSLON_DECAY_RATE*self.CURRENT_EPISODE+1)
+                        self.CURRENT_EPISODE = self.CURRENT_EPISODE + 1
+
+                    #step
+                    self.mote.sf._adapt_to_traffic(preferred_parent,self.mote.sf.TX_CELL_OPT,is_training = self.IS_TRAINING)
             else:
                 #is in the same slotframe. Do nothing
                 pass
-
 
         # find closest active slot in schedule
         if not self.isSync:
@@ -1769,6 +1804,7 @@ class Cell(object):
             slot_offset,
             channel_offset,
             options,
+            slotframe_inserted,
             mac_addr=None,
             link_type=d.LINKTYPE_NORMAL
         ):
@@ -1784,6 +1820,7 @@ class Cell(object):
         self.options        = options
         self.mac_addr       = mac_addr
         self.link_type      = link_type
+        self.slotframe_inserted = slotframe_inserted
 
         # back reference to slotframe; this will be set in SlotFrame.add()
         self.slotframe = None
