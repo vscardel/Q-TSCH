@@ -170,6 +170,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.traffic = 0
         self.queue_ratio = 0
         self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
+        self.SLOTFRAME = np.zeros((101,16))
         self.MAX_CELLS = 12
         self.sendEb = False
         self.MIN_CELLS = 5
@@ -635,6 +636,29 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         if num_cells < self.MIN_CELLS:
             return 1
         return 0
+    
+    def print_slotframe(self,neighbor):
+        slotframe = self.mote.tsch.get_slotframe(
+            self.SLOTFRAME_HANDLE_AUTONOMOUS_CELLS)
+
+        tx_cells = [cell for cell in self.mote.tsch.get_cells(
+            neighbor,
+            self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
+        ) if cell.options == [d.CELLOPTION_TX]]
+
+        
+        for i in range(101):
+            for j in range(self.settings.phy_numChans):
+                try:
+                    current_cell = [cell for cell in tx_cells if cell.slot_offset == i and cell.channel_offset == j+1][0]
+                except:
+                    cell = None
+                if cell:
+                    self.SLOTFRAME[i][j] = 1
+                else:
+                    self.SLOTFRAME[i][j] = 0
+            print(self.SLOTFRAME)
+
 
     def _adapt_to_traffic(self, neighbor, cell_opt,is_training):
         # reset retry counter
@@ -698,7 +722,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     num_add_cells = int(self.mote.tsch.AVERAGE_QUEUE_LENGTH)
                 self._request_adding_cells(
                     neighbor     = neighbor,
-                    num_tx_cells = num_add_cells
+                    num_tx_cells = 1
                 )
             elif action == 0:
                 tx_cells = [cell for cell in self.mote.tsch.get_cells(
@@ -713,7 +737,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     num_remove_cell = 1
                     for cell in tx_cells:
                         if (self.engine.slotframe_count - cell.slotframe_inserted) > 100 and cell.num_tx == 0:
-                            num_remove_cell = num_remove_cell + 1
+                            num_remove_cell = 1
                         else:
                             cell.slotframe_inserted = self.engine.slotframe_count
                     self._request_deleting_cells(

@@ -1042,12 +1042,12 @@ class Tsch(object):
                 if preferred_parent:
 
                     #comeco de um novo episodio
-                    if slotframe_count % 100 == 0:
+                    if slotframe_count % 9 == 0:
                         self.EPSLON = self.MIN_EPSLON + (self.MAX_EPSLON - self.MIN_EPSLON)*np.exp(-self.EPSLON_DECAY_RATE*self.CURRENT_EPISODE+1)
                         self.CURRENT_EPISODE = self.CURRENT_EPISODE + 1
 
-                    #step
-                    self.mote.sf._adapt_to_traffic(preferred_parent,self.mote.sf.TX_CELL_OPT,is_training = self.IS_TRAINING)
+                        #step
+                        self.mote.sf._adapt_to_traffic(preferred_parent,self.mote.sf.TX_CELL_OPT,is_training = self.IS_TRAINING)
             else:
                 #is in the same slotframe. Do nothing
                 pass
