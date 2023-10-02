@@ -272,15 +272,15 @@ class AppIndustrialMonitoring(AppBase):
             return
 
         # Introduce variations in traffic
-        if random.random() < 0.1:
+        if random.random() < 0.3:
             # 10% chance of entering defect mode (increased traffic)
             self.defect_mode = True
-        elif random.random() < 0.2:
+        elif random.random() < 0.5:
             # 20% chance of exiting defect mode (normal traffic)
             self.defect_mode = False
         
         if self.defect_mode:
-            for i in range(random.randint(1,5)):
+            for i in range(random.randint(0,5)):
                 self._send_packet(
                     dstIp=self.mote.rpl.dodagId,
                     packet_length=self.settings.app_pkLength
