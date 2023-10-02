@@ -272,10 +272,10 @@ class AppIndustrialMonitoring(AppBase):
             return
 
         # Introduce variations in traffic
-        if random.random() < 0.1:
+        if random.random() < 0.3:
             # 10% chance of entering defect mode (increased traffic)
             self.defect_mode = True
-        elif random.random() < 0.2:
+        elif random.random() < 0.5:
             # 20% chance of exiting defect mode (normal traffic)
             self.defect_mode = False
         
