@@ -2,7 +2,7 @@
     "logging":"all",
     "settings":{
        "regular":{
-          "app_pkPeriodVar":0.05,
+          "app_pkPeriodVar":0.9,
           "rpl_of":"OF0",
           "tsch_max_payload_len":90,
           "secjoin_enabled":true,
@@ -24,7 +24,7 @@
           ],
           "conn_random_init_min_pdr":0.5,
           "app_pkPeriod":60,
-          "app":"AppPeriodic",
+          "app":"AppIndustrialMonitoring",
           "ALFA":0.7,
           "BETA":0.3,
           "phy_numChans":16,

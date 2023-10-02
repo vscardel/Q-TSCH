@@ -171,9 +171,6 @@ class AppRoot(AppBase):
 
 class AppPeriodic(AppBase):
 
-    MAX_NUM_GENERATE_PACKETS = 10
-    NUM_FLOOD_PACKET = 30
-    CHANCE_TO_FLOOD = 0
 
     """Send a packet periodically
 
@@ -208,12 +205,14 @@ class AppPeriodic(AppBase):
         else:
             # compute random delay
             assert self.settings.app_pkPeriodVar < 1
-            delay = self.settings.app_pkPeriod * (1 + random.uniform(-self.settings.app_pkPeriodVar, self.settings.app_pkPeriodVar))
+            # delay = self.settings.app_pkPeriod * (1 + random.uniform(-self.settings.app_pkPeriodVar, self.settings.app_pkPeriodVar))
+            delay = self.settings.app_pkPeriod
+
 
         # schedule
         self.engine.scheduleIn(
             delay           = delay,
-            cb              = self._send_random_packets,
+            cb              = self._send_a_single_packet,
             uniqueTag       = (
                 u'AppPeriodic',
                 u'scheduled_by_{0}'.format(self.mote.id)
@@ -234,28 +233,65 @@ class AppPeriodic(AppBase):
         # schedule the next transmission
         self._schedule_transmission()
 
-    def _send_random_packets(self):
-        
-        if self.mote.rpl.dodagId == None:
-            # it seems we left the dodag; stop the transmission
-            self.sending_first_packet = True
+class AppIndustrialMonitoring(AppBase):
+
+    def __init__(self, mote, settings=None):
+        super(AppIndustrialMonitoring, self).__init__(mote)
+        self.defect_mode = False
+
+    def startSendingData(self):
+        self._schedule_transmission()
+
+    def _schedule_transmission(self):
+        assert self.settings.app_pkPeriod >= 0
+        if self.settings.app_pkPeriod == 0:
             return
 
-        #chance to flood
-        rand_number = random.uniform(0, 1)
+        # Introduce variations in traffic
+        if self.defect_mode:
+            # In defect mode, generate traffic more frequently (higher traffic)
+            delay = self.settings.tsch_slotDuration + (self.settings.app_pkPeriod * 0.5 * random.random())
+        else:
+            # In normal mode, use the original periodicity
+            delay = self.settings.app_pkPeriod
 
-        NUM_PACKETS = random.randint(1,self.MAX_NUM_GENERATE_PACKETS)
+        # Schedule the next transmission
+        self.engine.scheduleIn(
+            delay=delay,
+            cb=self._send_packets,
+            uniqueTag=(
+                u'AppIndustrialMonitoring',
+                u'scheduled_by_{0}'.format(self.mote.id)
+            ),
+            intraSlotOrder=d.INTRASLOTORDER_ADMINTASKS,
+        )
 
-        if rand_number <= self.CHANCE_TO_FLOOD:
-            print('flooding')
-            NUM_PACKETS = self.NUM_FLOOD_PACKET
+    def _send_packets(self):
+        if self.mote.rpl.dodagId is None:
+            # It seems we left the DODAG; stop the transmission
+            return
 
-        for i in range(NUM_PACKETS):
+        # Introduce variations in traffic
+        if random.random() < 0.1:
+            # 10% chance of entering defect mode (increased traffic)
+            self.defect_mode = True
+        elif random.random() < 0.2:
+            # 20% chance of exiting defect mode (normal traffic)
+            self.defect_mode = False
+        
+        if self.defect_mode:
+            for i in range(random.randint(1,5)):
+                self._send_packet(
+                    dstIp=self.mote.rpl.dodagId,
+                    packet_length=self.settings.app_pkLength
+                )
+        else:
             self._send_packet(
-                dstIp          = self.mote.rpl.dodagId,
-                packet_length  = self.settings.app_pkLength
+                dstIp=self.mote.rpl.dodagId,
+                packet_length=self.settings.app_pkLength
             )
-        # schedule the next transmission
+
+        # Schedule the next transmission
         self._schedule_transmission()
 
 class AppBurst(AppBase):
