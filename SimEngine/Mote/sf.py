@@ -145,7 +145,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
 
     #Q-TSCH constants
     NUM_ACTIONS = 3
-    NUM_STATES = 16
+    NUM_STATES = 8
 
     def __init__(self, mote):
         # initialize parent class
@@ -163,23 +163,13 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         #Q-TSCH variables
         self.first_state = True
         self.prev_queue_ratio = 0
-        self.prev_tx_cells = 0
-        self.prev_traffic = 0
-        self.prev_prob = []
-        self.prev_expected_number_of_packets_to_send = 0
-        self.traffic = 0
         self.queue_ratio = 0
+        self.dropped_packets = 0
         self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
-        self.SLOTFRAME = np.zeros((101,16))
-        self.MAX_CELLS = 12
-        self.sendEb = False
-        self.MIN_CELLS = 5
         #Q-TSCH parameters
         self.ALFA = self.settings.ALFA
         self.BETA = self.settings.BETA
         self.NUM_TRAIN_EPISODES = 10
-        self.MAX_STEPS = 99
-        self.IS_TRAINING = True
 
     # ======================= public ==========================================
 
@@ -578,11 +568,9 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             return 0
         return 1
     
-    def discretize_expected_number_of_packets_to_send(self,expct_num_pkts):
-        if expct_num_pkts <= 5:
-            return 0
+    def discretize_dropped_packets(self,dropped_packets):
         return 1
-
+    
     def _update_cell_counters(self, cell_opt, used):
         if cell_opt == self.TX_CELL_OPT:
             self.num_tx_cells_elapsed += 1
@@ -594,49 +582,15 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             if used:
                 self.num_rx_cells_used += 1
     
-    def print_exploitation(self,traffic,queue_ratio,expected_number_of_packets_to_send,list_state_variables,action,tx_cells,rx_cells,max_num_cells,min_num_cells):
+    def print_exploitation(self,queue_ratio,dropped_packets):
         print('Mote Id')
         print(self.mote.id)
-        print('exploitation')
-        print('q','p','max_cells','min_cells')
-        print(
-            self.discretize_queue_ratio(queue_ratio),
-            self.discretize_expected_number_of_packets_to_send(expected_number_of_packets_to_send),
-            max_num_cells,
-            min_num_cells
-        )
-        print('table')
-        print(self.Q_table)
-        state_number = self.map_state_to_number(list_state_variables)
-        print('state number')
-        print(state_number)
-        print('cells')
-        print('action')
-        print(action)
-        print('tx cells')
-        print(len(tx_cells))
-        print('rx cells')
-        print(len(rx_cells))
-        print('tx_queue_size')
-        print(len(self.mote.tsch.txQueue))
-        print('num EBs')
-        print(self.mote.tsch.numEb)
-        print("average queue size")
-        print(self.mote.tsch.AVERAGE_QUEUE_LENGTH)
-        print("average packets sent in interval")
-        print(self.mote.tsch.average_dropped_packets_in_interval)
+        print("queue_ratio")
+        print(queue_ratio)
+        print("pacotes perdidos por fila cheia no intervalo")
+        print(dropped_packets)
         print('--------------------')
 
-    def discretize_max_threshold_cell(self,num_cells):
-        if num_cells > self.MAX_CELLS:
-            return 1
-        return 0
-
-    def discretize_min_threshold_cell(self,num_cells):
-        if num_cells < self.MIN_CELLS:
-            return 1
-        return 0
-    
     def print_slotframe(self,neighbor):
         slotframe = self.mote.tsch.get_slotframe(
             self.SLOTFRAME_HANDLE_AUTONOMOUS_CELLS)
@@ -679,16 +633,12 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         
         #action taked by the node --> 0 is remove one cell, 1 is add one cell and 2 is keep as it is
         #inicializar variaveis do estado atual
-        traffic = self.prev_traffic
         queue_ratio = self.prev_queue_ratio
-        expected_number_of_packets_to_send = self.return_max_num_packet_by_prob(self.prev_prob)
-        num_tx_cells = self.prev_tx_cells
+        dropped_packets = self.dropped_packets
 
         list_state_variables = [
             self.discretize_queue_ratio(queue_ratio),
-            self.discretize_expected_number_of_packets_to_send(expected_number_of_packets_to_send),
-            self.discretize_max_threshold_cell(num_tx_cells),
-            self.discretize_min_threshold_cell(num_tx_cells)
+            self.discretize_dropped_packets(dropped_packets)
         ]
 
         if cell_opt == self.TX_CELL_OPT:
@@ -698,28 +648,17 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             rand_number = random.uniform(0, 1)
             #random action
             if self.mote.tsch.EPSLON <= rand_number:
-                action = random.choice([0,1,2])
+                action = random.choice([0,1])
             else:
-                action = self.return_best_q_action(state_number)
+                # action = self.return_best_q_action(state_number)
+                action = 0
 
             self.print_exploitation(
-                traffic,
                 queue_ratio,
-                expected_number_of_packets_to_send,
-                list_state_variables,
-                action,
-                tx_cells,
-                rx_cells,
-                self.discretize_max_threshold_cell(len(tx_cells)),
-                self.discretize_min_threshold_cell(len(tx_cells))
+                dropped_packets
             )
-            if action == 2:
-                pass
-            elif action == 1:
+            if action == 1:
                 self.retry_count[neighbor] = 0
-                num_add_cells = 1
-                if self.mote.tsch.AVERAGE_QUEUE_LENGTH:
-                    num_add_cells = int(self.mote.tsch.AVERAGE_QUEUE_LENGTH)
                 self._request_adding_cells(
                     neighbor     = neighbor,
                     num_tx_cells = 1
@@ -733,31 +672,21 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                 # cell to our parent at least
                 if len(tx_cells) > 1:
                     self.retry_count[neighbor] = 0
-
                     num_remove_cell = 1
-                    for cell in tx_cells:
-                        if (self.engine.slotframe_count - cell.slotframe_inserted) > 100 and cell.num_tx == 0:
-                            num_remove_cell = 1
-                        else:
-                            cell.slotframe_inserted = self.engine.slotframe_count
                     self._request_deleting_cells(
                         neighbor     = neighbor,
                         num_cells    = num_remove_cell,
                         cell_options = self.TX_CELL_OPT
                     )
         #computar variaveis do proximo estado
-        self.prev_prob = self.compute_prob_poission(10)
         self.prev_queue_ratio = self.compute_queue_ratio()
-        self.prev_tx_cells = len(tx_cells)
-        prev_expected_number_of_packets_to_send = self.return_max_num_packet_by_prob(self.prev_prob)
+        self.prev_dropped_packets = self.mote.tsch.average_dropped_packets_in_interval
         #computa Q(s,a) usando r(s,a)
         list_next_state_variables = [
             self.discretize_queue_ratio(self.prev_queue_ratio),
-            self.discretize_expected_number_of_packets_to_send(prev_expected_number_of_packets_to_send),
-            self.discretize_max_threshold_cell(self.prev_tx_cells),
-            self.discretize_min_threshold_cell(self.prev_tx_cells)
+            self.discretize_dropped_packets(self.prev_dropped_packets)
         ]
-        self.compute_q_table(list_state_variables,list_next_state_variables,action,cell_opt,tx_cells)
+        # self.compute_q_table(list_state_variables,list_next_state_variables,action,cell_opt,tx_cells)
     
     def map_state_to_number(self,list_discrete_variables):
         state = 0

@@ -84,13 +84,10 @@ class Tsch(object):
         self.args_for_next_pending_bit_task = None
 
         #Q-TSCH variables
-        self.num_packets_sent_in_slotframe = 0
         self.AVERAGE_QUEUE_LENGTH = 0
         self.current_slotframe = -1
-        self.array_packets_sent_in_interval = []
         self.array_queue_sizes_on_slotframes = []        
         self.INTERVAL = 10
-        self.LAMBDA = 0
         self.dropped_packets = 0
         self.average_dropped_packets_in_interval = 0
         self.CURRENT_EPISODE = -1
@@ -1010,39 +1007,29 @@ class Tsch(object):
         slotframe_count = self.engine.slotframe_count
         if slotframe_count == 0:
             self.current_slotframe = 0
-        #last one
-        elif slotframe_count == 10299:
-            with open('q_learning_rable.npy{0}'.format(self.mote.Id), 'wb') as f:
-                np.save(self.mote.sf.Q_table)
         else:
             #switch slotframes
             if slotframe_count != self.current_slotframe:
 
-                self.array_packets_sent_in_interval.append(self.num_packets_sent_in_slotframe)
-
                 self.array_queue_sizes_on_slotframes.append(len(self.txQueue))
 
-                if len(self.array_packets_sent_in_interval) == self.INTERVAL:
-
-                    self.LAMBDA = sum(self.array_packets_sent_in_interval)/float(self.INTERVAL)
+                if len(self.array_queue_sizes_on_slotframes) == self.INTERVAL:
 
                     self.AVERAGE_QUEUE_LENGTH = sum(self.array_queue_sizes_on_slotframes)/float(self.INTERVAL)
 
-                    self.array_packets_sent_in_interval.pop(0)
-
                     self.array_queue_sizes_on_slotframes.pop(0)
 
-                    self.average_dropped_packets_in_interval = self.dropped_packets/10
+                    self.average_dropped_packets_in_interval = self.dropped_packets/self.INTERVAL
+                    
+                    self.dropped_packets = 0
 
-                self.num_packets_sent_in_slotframe = 0
                 self.current_slotframe = slotframe_count
 
                 preferred_parent = self.mote.rpl.getPreferredParent()
 
-                if preferred_parent:
-
-                    #comeco de um novo episodio
-                    if slotframe_count % 9 == 0:
+                if slotframe_count >= self.INTERVAL:
+                    if preferred_parent:
+                        #comeco de um novo episodio
                         self.EPSLON = self.MIN_EPSLON + (self.MAX_EPSLON - self.MIN_EPSLON)*np.exp(-self.EPSLON_DECAY_RATE*self.CURRENT_EPISODE+1)
                         self.CURRENT_EPISODE = self.CURRENT_EPISODE + 1
 
@@ -1149,7 +1136,6 @@ class Tsch(object):
         self._schedule_next_active_slot()
 
     def _action_TX(self, pktToSend, channel):
-        self.num_packets_sent_in_slotframe += 1
         # set the pending bit field
         if (
                 (pktToSend[u'mac'][u'dstMac'] != d.BROADCAST_ADDRESS)
@@ -1203,8 +1189,6 @@ class Tsch(object):
 
     def _decided_to_send_eb(self):
         #scheduling function decided that it's time to send EB
-        if self.mote.sf.sendEb:
-            return True
         # short-hand
         prob = float(self.settings.tsch_probBcast_ebProb)
         n    = 1 + len(self.neighbor_table)
