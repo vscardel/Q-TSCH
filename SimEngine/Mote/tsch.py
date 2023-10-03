@@ -1011,6 +1011,9 @@ class Tsch(object):
             #switch slotframes
             if slotframe_count != self.current_slotframe:
 
+                if slotframe_count % 99 == 0:
+                    self.average_dropped_packets_in_interval = self.dropped_packets/self.INTERVAL
+
                 self.array_queue_sizes_on_slotframes.append(len(self.txQueue))
 
                 if len(self.array_queue_sizes_on_slotframes) == self.INTERVAL:
@@ -1018,8 +1021,6 @@ class Tsch(object):
                     self.AVERAGE_QUEUE_LENGTH = sum(self.array_queue_sizes_on_slotframes)/float(self.INTERVAL)
 
                     self.array_queue_sizes_on_slotframes.pop(0)
-
-                    self.average_dropped_packets_in_interval = self.dropped_packets/self.INTERVAL
                     
                     self.dropped_packets = 0
 

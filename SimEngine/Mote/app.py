@@ -280,7 +280,7 @@ class AppIndustrialMonitoring(AppBase):
             self.defect_mode = False
         
         if self.defect_mode:
-            for i in range(random.randint(0,10)):
+            for i in range(random.randint(0,5)):
                 self._send_packet(
                     dstIp=self.mote.rpl.dodagId,
                     packet_length=self.settings.app_pkLength

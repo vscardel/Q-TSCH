@@ -165,6 +165,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.prev_queue_ratio = 0
         self.queue_ratio = 0
         self.dropped_packets = 0
+        self.prev_dropped_packets = 0
         self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
         #Q-TSCH parameters
         self.ALFA = self.settings.ALFA
@@ -631,10 +632,8 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
         ) if cell.options == [d.CELLOPTION_RX]]
         
-        #action taked by the node --> 0 is remove one cell, 1 is add one cell and 2 is keep as it is
-        #inicializar variaveis do estado atual
         queue_ratio = self.prev_queue_ratio
-        dropped_packets = self.dropped_packets
+        dropped_packets = self.prev_dropped_packets
 
         list_state_variables = [
             self.discretize_queue_ratio(queue_ratio),
