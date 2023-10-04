@@ -554,16 +554,6 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             #check state variables
             #self.print_state_variables("rx")
             
-    #compute the poission probability distr for [1,max_num_packets] for the current_slotframe
-    def compute_prob_poission(self,max_num_packets):
-        probs = [(((self.mote.tsch.LAMBDA*self.mote.tsch.INTERVAL)**packet)/float(math.factorial(packet)))*math.e**(-self.mote.tsch.LAMBDA*self.mote.tsch.INTERVAL) for packet in range(1,max_num_packets+1)]
-        return probs
-    
-    def return_max_num_packet_by_prob(self,prob_distr):
-        if prob_distr:
-            return 1 + prob_distr.index(max(prob_distr))
-        return 0
-
     def discretize_queue_ratio(self,queue_ratio):
         if queue_ratio <= 1.5:
             return 0
@@ -571,6 +561,29 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
     
     def discretize_dropped_packets(self,dropped_packets):
         return 1
+    
+    def compute_charge(self):
+        charge = 0
+        charge =  self.mote.radio.stats['idle_listen'] * d.CHARGE_IdleListen_uC
+        charge += self.mote.radio.stats['tx_data_rx_ack'] * d.CHARGE_TxDataRxAck_uC
+        charge += self.mote.radio.stats['rx_data_tx_ack'] * d.CHARGE_RxDataTxAck_uC
+        charge += self.mote.radio.stats['tx_data'] * d.CHARGE_TxData_uC
+        charge += self.mote.radio.stats['rx_data'] * d.CHARGE_RxData_uC
+        charge += self.mote.radio.stats['sleep'] * d.CHARGE_Sleep_uC
+
+        current_asn = self.engine.getAsn()
+        asn_synced = self.mote.tsch.asn_is_synced
+
+        denominator = (float(current_asn-asn_synced) * self.settings.tsch_slotDuration)
+        if denominator != 0:
+            avg_current_uA = charge/(float(current_asn-asn_synced) * self.settings.tsch_slotDuration)
+        else:
+            avg_current_uA = 0
+
+        if avg_current_uA != 0:
+            lifetime_AA_years = (2821.5*1000/avg_current_uA)/(24.0*365)        
+            return avg_current_uA
+        return 0
     
     def _update_cell_counters(self, cell_opt, used):
         if cell_opt == self.TX_CELL_OPT:
@@ -586,34 +599,16 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
     def print_exploitation(self,queue_ratio,dropped_packets):
         print('Mote Id')
         print(self.mote.id)
-        print("queue_ratio")
+        print("Tamanho medio da fila")
         print(queue_ratio)
         print("pacotes perdidos por fila cheia no intervalo")
         print(dropped_packets)
-        print('--------------------')
+        print("Carga")
+        print(self.compute_charge())
 
-    def print_slotframe(self,neighbor):
-        slotframe = self.mote.tsch.get_slotframe(
-            self.SLOTFRAME_HANDLE_AUTONOMOUS_CELLS)
-
-        tx_cells = [cell for cell in self.mote.tsch.get_cells(
-            neighbor,
-            self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
-        ) if cell.options == [d.CELLOPTION_TX]]
-
-        
-        for i in range(101):
-            for j in range(self.settings.phy_numChans):
-                try:
-                    current_cell = [cell for cell in tx_cells if cell.slot_offset == i and cell.channel_offset == j+1][0]
-                except:
-                    cell = None
-                if cell:
-                    self.SLOTFRAME[i][j] = 1
-                else:
-                    self.SLOTFRAME[i][j] = 0
-            print(self.SLOTFRAME)
-
+        # print("Pacotes perdidos no total")
+        # print(self.mote.tsch.dropped_packets)
+        # print('--------------------')
 
     def _adapt_to_traffic(self, neighbor, cell_opt,is_training):
         # reset retry counter

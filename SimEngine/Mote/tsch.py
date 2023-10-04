@@ -91,6 +91,7 @@ class Tsch(object):
         self.dropped_packets = 0
         self.average_dropped_packets_in_interval = 0
         self.CURRENT_EPISODE = -1
+        self.asn_is_synced = 0
 
         self.EPSLON = None
         self.MAX_EPSLON = 1.0           
@@ -118,6 +119,9 @@ class Tsch(object):
         return self.isSync
 
     def setIsSync(self,val):
+
+        self.asn_is_synced = self.engine.getAsn()
+
         # set
         self.isSync = val
 
@@ -1011,8 +1015,9 @@ class Tsch(object):
             #switch slotframes
             if slotframe_count != self.current_slotframe:
 
-                if slotframe_count % 99 == 0:
+                if slotframe_count % 10 == 0:
                     self.average_dropped_packets_in_interval = self.dropped_packets/self.INTERVAL
+                    self.dropped_packets = 0
 
                 self.array_queue_sizes_on_slotframes.append(len(self.txQueue))
 
@@ -1022,8 +1027,6 @@ class Tsch(object):
 
                     self.array_queue_sizes_on_slotframes.pop(0)
                     
-                    self.dropped_packets = 0
-
                 self.current_slotframe = slotframe_count
 
                 preferred_parent = self.mote.rpl.getPreferredParent()
