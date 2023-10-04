@@ -144,8 +144,8 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
     NUM_INITIAL_NEGOTIATED_RX_CELLS = 0
 
     #Q-TSCH constants
-    NUM_ACTIONS = 3
-    NUM_STATES = 8
+    NUM_ACTIONS = 2
+    NUM_STATES = 4
 
     def __init__(self, mote):
         # initialize parent class
@@ -166,6 +166,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.queue_ratio = 0
         self.dropped_packets = 0
         self.prev_dropped_packets = 0
+        self.prev_energy_left = 0
         self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
         #Q-TSCH parameters
         self.ALFA = self.settings.ALFA
@@ -555,12 +556,15 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             #self.print_state_variables("rx")
             
     def discretize_queue_ratio(self,queue_ratio):
-        if queue_ratio <= 1.5:
+        if queue_ratio <= 1:
             return 0
         return 1
     
     def discretize_dropped_packets(self,dropped_packets):
+        if dropped_packets <= 0.3:
+            return 0
         return 1
+     
     
     def compute_charge(self):
         charge = 0
@@ -605,7 +609,8 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         print(dropped_packets)
         print("Carga")
         print(self.compute_charge())
-
+        print('Q TABLE')
+        print(self.Q_table)
         # print("Pacotes perdidos no total")
         # print(self.mote.tsch.dropped_packets)
         # print('--------------------')
@@ -629,10 +634,12 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         
         queue_ratio = self.prev_queue_ratio
         dropped_packets = self.prev_dropped_packets
+        energy_left = self.prev_energy_left
 
         list_state_variables = [
-            self.discretize_queue_ratio(queue_ratio),
-            self.discretize_dropped_packets(dropped_packets)
+            self.queue_ratio,
+            self.dropped_packets,
+            energy_left
         ]
 
         if cell_opt == self.TX_CELL_OPT:
@@ -644,13 +651,13 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             if self.mote.tsch.EPSLON <= rand_number:
                 action = random.choice([0,1])
             else:
-                # action = self.return_best_q_action(state_number)
-                action = 0
+                action = self.return_best_q_action(state_number)
 
             self.print_exploitation(
                 queue_ratio,
                 dropped_packets
             )
+
             if action == 1:
                 self.retry_count[neighbor] = 0
                 self._request_adding_cells(
@@ -675,82 +682,49 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         #computar variaveis do proximo estado
         self.prev_queue_ratio = self.compute_queue_ratio()
         self.prev_dropped_packets = self.mote.tsch.average_dropped_packets_in_interval
+        self.prev_energy_left = self.compute_charge()
         #computa Q(s,a) usando r(s,a)
         list_next_state_variables = [
-            self.discretize_queue_ratio(self.prev_queue_ratio),
-            self.discretize_dropped_packets(self.prev_dropped_packets)
+            self.prev_queue_ratio,
+            self.prev_dropped_packets,
+            self.prev_energy_left
         ]
-        # self.compute_q_table(list_state_variables,list_next_state_variables,action,cell_opt,tx_cells)
+        self.compute_q_table(list_state_variables,list_next_state_variables,action,cell_opt,tx_cells)
     
     def map_state_to_number(self,list_discrete_variables):
-        state = 0
-        str_list = [str(variable) for variable in list_discrete_variables]
-        #convertion binary to decimal
-        for index,c in enumerate(str_list):
-            state += int(c) * 2**(3-index)
-        return state
+
+        queue_ratio = list_discrete_variables[0]
+        dropped_packets = list_discrete_variables[1]
+
+        binary_number = str(self.discretize_queue_ratio(queue_ratio)) + str(self.discretize_dropped_packets(dropped_packets))
+        
+        return int(binary_number,2)
     
     #quando remover uma celula
-    def compute_reward(self, list_state_variables, action, cell_opt, tx_cells):
-        queue = list_state_variables[0]
-        packet = list_state_variables[1]
-        threshold_max_cells = list_state_variables[2]
-        threshold_min_cells = list_state_variables[3]
-        
-        # Initialize with a small negative reward for exploration
-        reward = -0.01
-
-        if queue == 0:
-            reward = reward + 2
+    def compute_reward(self, list_state_variables,list_next_state_variables):
+        next_state = self.map_state_to_number(list_next_state_variables)
+        queue_ratio = list_state_variables[0]
+        if next_state == 0:
+            return 5
         else:
-            reward = reward - 1
+            return 0.6*math.e**(-queue_ratio) + 0.4*list_state_variables[2]
 
-        if packet == 1 and action == 1:
-            reward = reward + 1
-        elif packet == 0 and action == 1:
-            reward = reward - 1
-        elif packet == 0 and action == 0:
-            reward = reward + 1
-        elif packet == 1 and action == 0:
-            reward = reward - 1
-        
-
-        if self.mote.tsch.average_dropped_packets_in_interval <= 0.1:
-            reward += 3
-        else:
-            reward -= 3
-        
-        return reward
         
     def return_best_q_value(self,state):
-        max_q_value = 0
-        for action in range(self.NUM_ACTIONS):
-            current_value = self.Q_table[state][action]
-            if current_value > max_q_value:
-                max_q_value = current_value
-        return max_q_value
+       current_vector = self.Q_table[state]
+       return np.max(current_vector)
     
     def return_best_q_action(self,state):
-        max_q_value = -100
-        best_action = 0
-        sum_actions = 0
-        for action in range(self.NUM_ACTIONS):
-            current_value = self.Q_table[state][action]
-            sum_actions = sum_actions + current_value
-            if current_value > max_q_value:
-                best_action = action
-                max_q_value = current_value
-        #choose random action
-        if sum_actions == 0: 
-            return random.choice((0,1,2))
-        return best_action
+        current_vector = self.Q_table[state]
+        return np.argmax(current_vector)
     
     def compute_q_table(self,list_state_variables,list_next_state_variables,action,cell_opt,tx_cells):
         curr_state = self.map_state_to_number(list_state_variables)
         next_state = self.map_state_to_number(list_next_state_variables)
         #compute deltaQ
-        reward = self.compute_reward(list_state_variables,action,cell_opt,tx_cells)
-        # print(reward)
+        reward = self.compute_reward(list_state_variables,list_next_state_variables)
+        print("reward")
+        print(reward)
         deltaQ = reward + self.BETA * self.return_best_q_value(next_state)
         #compute Q_table[curr_state][action]
         self.Q_table[curr_state][action] = (1 - self.ALFA) * self.Q_table[curr_state][action] + (self.ALFA * deltaQ)
