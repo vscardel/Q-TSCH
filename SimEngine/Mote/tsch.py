@@ -1006,9 +1006,7 @@ class Tsch(object):
         asn       = self.engine.getAsn()
         tsCurrent = asn % self.settings.tsch_slotframeLength
 
-        #logic to compute the lamdda to derive de poisson prob distribution
-
-        slotframe_count = self.engine.slotframe_count
+        slotframe_count = self.engine.slotframe_count - 1
         if slotframe_count == 0:
             self.current_slotframe = 0
         else:
@@ -1031,14 +1029,14 @@ class Tsch(object):
 
                 preferred_parent = self.mote.rpl.getPreferredParent()
 
-                if slotframe_count >= self.INTERVAL:
-                    if preferred_parent:
-                        #comeco de um novo episodio
-                        self.EPSLON = self.MIN_EPSLON + (self.MAX_EPSLON - self.MIN_EPSLON)*np.exp(-self.EPSLON_DECAY_RATE*self.CURRENT_EPISODE+1)
-                        self.CURRENT_EPISODE = self.CURRENT_EPISODE + 1
+                if preferred_parent:
+                    #comeco de um novo episodio
+                    self.EPSLON = self.MIN_EPSLON + (self.MAX_EPSLON - self.MIN_EPSLON)*np.exp(-self.EPSLON_DECAY_RATE*self.CURRENT_EPISODE+1)
+                    self.CURRENT_EPISODE = self.CURRENT_EPISODE + 1
 
-                        #step
-                        self.mote.sf._adapt_to_traffic(preferred_parent,self.mote.sf.TX_CELL_OPT,is_training = self.IS_TRAINING)
+                    #step
+                    print("Chamando adaptacao no slotframe " + str(slotframe_count) + " " + str(self.mote.id ))
+                    self.mote.sf._adapt_to_traffic(preferred_parent,self.mote.sf.TX_CELL_OPT,is_training = self.IS_TRAINING)
             else:
                 #is in the same slotframe. Do nothing
                 pass

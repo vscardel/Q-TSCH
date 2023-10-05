@@ -167,6 +167,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.dropped_packets = 0
         self.prev_dropped_packets = 0
         self.prev_energy_left = 0
+        self.MAX_ENERGY = 1
         self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
         #Q-TSCH parameters
         self.ALFA = self.settings.ALFA
@@ -600,7 +601,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             if used:
                 self.num_rx_cells_used += 1
     
-    def print_exploitation(self,queue_ratio,dropped_packets):
+    def print_exploitation(self,queue_ratio,dropped_packets,action):
         print('Mote Id')
         print(self.mote.id)
         print("Tamanho medio da fila")
@@ -609,8 +610,12 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         print(dropped_packets)
         print("Carga")
         print(self.compute_charge())
+        print("Tamnho da fila")
+        print(len(self.mote.tsch.txQueue))
         print('Q TABLE')
         print(self.Q_table)
+        print('Acao')
+        print(action)
         # print("Pacotes perdidos no total")
         # print(self.mote.tsch.dropped_packets)
         # print('--------------------')
@@ -648,14 +653,15 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
 
             rand_number = random.uniform(0, 1)
             #random action
-            if self.mote.tsch.EPSLON <= rand_number:
-                action = random.choice([0,1])
-            else:
+            if self.mote.tsch.EPSLON < rand_number:
                 action = self.return_best_q_action(state_number)
+            else:
+                action = random.choice([0,1])
 
             self.print_exploitation(
                 queue_ratio,
-                dropped_packets
+                dropped_packets,
+                action
             )
 
             if action == 1:
@@ -704,10 +710,13 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
     def compute_reward(self, list_state_variables,list_next_state_variables):
         next_state = self.map_state_to_number(list_next_state_variables)
         queue_ratio = list_state_variables[0]
+        energy_left = list_state_variables[2]
+        if energy_left > self.MAX_ENERGY:
+            self.MAX_ENERGY = energy_left
         if next_state == 0:
             return 5
         else:
-            return 0.6*math.e**(-queue_ratio) + 0.4*list_state_variables[2]
+            return 0.6*math.e**(-queue_ratio) + 0.4*(energy_left)/self.MAX_ENERGY
 
         
     def return_best_q_value(self,state):
@@ -723,8 +732,6 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         next_state = self.map_state_to_number(list_next_state_variables)
         #compute deltaQ
         reward = self.compute_reward(list_state_variables,list_next_state_variables)
-        print("reward")
-        print(reward)
         deltaQ = reward + self.BETA * self.return_best_q_value(next_state)
         #compute Q_table[curr_state][action]
         self.Q_table[curr_state][action] = (1 - self.ALFA) * self.Q_table[curr_state][action] + (self.ALFA * deltaQ)
