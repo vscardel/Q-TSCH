@@ -4,18 +4,14 @@ from __future__ import absolute_import
 from builtins import range
 from builtins import object
 import random
-import math
 import sys
 from abc import abstractmethod
-
 
 import netaddr
 
 import SimEngine
 from . import MoteDefines as d
 from . import sixp
-
-import numpy as np
 
 # =========================== defines =========================================
 
@@ -143,10 +139,6 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
     NUM_INITIAL_NEGOTIATED_TX_CELLS = 1
     NUM_INITIAL_NEGOTIATED_RX_CELLS = 0
 
-    #Q-TSCH constants
-    NUM_ACTIONS = 3
-    NUM_STATES = 8
-
     def __init__(self, mote):
         # initialize parent class
         super(SchedulingFunctionMSF, self).__init__(mote)
@@ -160,23 +152,11 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.rx_cell_utilization  = 0
         self.locked_slots         = set([]) # slots in on-going ADD transactions
         self.retry_count          = {}      # indexed by MAC address
-        #Q-TSCH variables
-        self.first_state = True
-        self.prev_queue_ratio = 0
-        self.prev_traffic = 0
-        self.prev_prob = []
-        self.prev_expected_number_of_packets_to_send = 0
-        self.traffic = 0
-        self.queue_ratio = 0
-        self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
-        #Q-TSCH parameters
-        self.ALFA = self.settings.ALFA
-        self.BETA = self.settings.BETA
-        self.EPSLON = self.settings.EPSLON
 
     # ======================= public ==========================================
 
     # === admin
+
     def start(self):
         # install slotframes for MSF, which have the same length as
         # Slotframe 0
@@ -215,14 +195,10 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
 
     # === indications from other layers
 
-    def indication_neighbor_added(self, neisghbor_mac_addr):
+    def indication_neighbor_added(self, neighbor_mac_addr):
         pass
 
-    def compute_queue_ratio(self):
-        return len(self.mote.tsch.txQueue)/float(self.settings.tsch_tx_queue_size)
-
     def indication_tx_cell_elapsed(self, cell, sent_packet):
-
         preferred_parent = self.mote.rpl.getPreferredParent()
         if (
                 preferred_parent
@@ -253,7 +229,6 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     self.tx_cell_utilization = tx_cell_utilization
                 self._adapt_to_traffic(preferred_parent, self.TX_CELL_OPT)
                 self._reset_cell_counters(self.TX_CELL_OPT)
-
 
     def indication_rx_cell_elapsed(self, cell, received_packet):
         preferred_parent = self.mote.rpl.getPreferredParent()
@@ -537,7 +512,6 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             float(self.num_rx_cells_elapsed)
         )
         if d.MSF_MAX_NUMCELLS <= self.num_rx_cells_elapsed:
-            self.queue_ratio = self.compute_queue_ratio()
             if rx_cell_utilization != self.rx_cell_utilization:
                 self.log(
                     SimEngine.SimLog.LOG_MSF_RX_CELL_UTILIZATION,
@@ -553,29 +527,6 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                 self.rx_cell_utilization = rx_cell_utilization
             self._adapt_to_traffic(preferred_parent, self.RX_CELL_OPT)
             self._reset_cell_counters(self.RX_CELL_OPT)
-            ####################
-            #check state variables
-            #self.print_state_variables("rx")
-            
-    #compute the poission probability distr for [1,max_num_packets] for the current_slotframe
-    def compute_prob_poission(self,max_num_packets):
-        probs = [(((self.mote.tsch.LAMBDA*self.mote.tsch.INTERVAL)**packet)/float(math.factorial(packet)))*math.e**(-self.mote.tsch.LAMBDA*self.mote.tsch.INTERVAL) for packet in range(1,max_num_packets+1)]
-        return probs
-    
-    def return_max_num_packet_by_prob(self,prob_distr):
-        if prob_distr:
-            return 1 + prob_distr.index(max(prob_distr))
-        return 0
-
-    def discretize_queue_ratio(self,queue_ratio):
-        if queue_ratio <= 0.5:
-            return 0
-        return 1
-    
-    def discretize_expected_number_of_packets_to_send(self,expct_num_pkts):
-        if expct_num_pkts <= 5:
-            return 0
-        return 1
 
     def _update_cell_counters(self, cell_opt, used):
         if cell_opt == self.TX_CELL_OPT:
@@ -587,26 +538,6 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             self.num_rx_cells_elapsed += 1
             if used:
                 self.num_rx_cells_used += 1
-    
-    def print_exploitation(self,traffic,queue_ratio,expected_number_of_packets_to_send,list_state_variables,action,tx_cells,rx_cells):
-        print('Mote Id')
-        print(self.mote.id)
-        print('exploitation')
-        print('t','q','p')
-        print(traffic,self.discretize_queue_ratio(queue_ratio),self.discretize_expected_number_of_packets_to_send(expected_number_of_packets_to_send))
-        print('table')
-        print(self.Q_table)
-        state_number = self.map_state_to_number(list_state_variables)
-        print('state number')
-        print(state_number)
-        print('cells')
-        print('action')
-        print(action)
-        print('tx cells')
-        print(len(tx_cells))
-        print('rx cells')
-        print(len(rx_cells))
-        print('--------------------')
 
     def _adapt_to_traffic(self, neighbor, cell_opt):
         # reset retry counter
@@ -615,232 +546,54 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             # we're in the middle of a 6P transaction; try later
             return
 
-        #action taked by the node --> 0 is remove one cell, 1 is add one cell and 2 is keep as it is
-        action = 2
-        #inicializar variaveis do estado atual
-        traffic = self.prev_traffic
-        queue_ratio = self.prev_queue_ratio
-        expected_number_of_packets_to_send = self.return_max_num_packet_by_prob(self.prev_prob)
-        list_state_variables = [
-            traffic,
-            self.discretize_queue_ratio(queue_ratio),
-            self.discretize_expected_number_of_packets_to_send(expected_number_of_packets_to_send)
-        ]
-        severity = sum(list_state_variables)
-
-        rx_cells = [cell for cell in self.mote.tsch.get_cells(
-            neighbor,
-            self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
-        ) if cell.options == [d.CELLOPTION_RX]]
-
-        tx_cells = [cell for cell in self.mote.tsch.get_cells(
-            neighbor,
-            self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
-        ) if cell.options == [d.CELLOPTION_TX]]
-
-        #exploration or exploitation
-        rand_number = random.uniform(0, 1)
-
-
         if cell_opt == self.TX_CELL_OPT:
-        
-            if rand_number <= self.EPSLON:
-
-                if d.MSF_LIM_NUMCELLSUSED_HIGH < self.tx_cell_utilization:
-                    #high traffic
-                    self.traffic = 1
-                    action = 1
-                    # add one TX cell
-                    self.retry_count[neighbor] = 0
-                    self._request_adding_cells(
-                        neighbor     = neighbor,
-                        num_tx_cells = 1
-                    )
-
-                elif self.tx_cell_utilization < d.MSF_LIM_NUMCELLSUSED_LOW:
-                    #low_traffic
-                    self.traffic = 0
-                    action = 0
-                    tx_cells = [cell for cell in self.mote.tsch.get_cells(
-                            neighbor,
-                            self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
-                        ) if cell.options == [d.CELLOPTION_TX]]
-                    # delete one *TX* cell but we need to keep one dedicated
-                    # cell to our parent at least
-                    if len(tx_cells) > 1:
-                        self.retry_count[neighbor] = 0
-                        self._request_deleting_cells(
-                            neighbor     = neighbor,
-                            num_cells    = 1,
-                            cell_options = self.TX_CELL_OPT
-                        )
-            else:
-                action = self.return_best_q_action(self.map_state_to_number(list_state_variables))
-
-                self.print_exploitation(
-                    traffic,
-                    queue_ratio,
-                    expected_number_of_packets_to_send,
-                    list_state_variables,
-                    action,
-                    tx_cells,
-                    rx_cells
+            if d.MSF_LIM_NUMCELLSUSED_HIGH < self.tx_cell_utilization:
+                # add one TX cell
+                self.retry_count[neighbor] = 0
+                self._request_adding_cells(
+                    neighbor     = neighbor,
+                    num_tx_cells = 1
                 )
-                if action == 1:
-                    # add severity TX cells
+
+            elif self.tx_cell_utilization < d.MSF_LIM_NUMCELLSUSED_LOW:
+                tx_cells = [cell for cell in self.mote.tsch.get_cells(
+                        neighbor,
+                        self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
+                    ) if cell.options == [d.CELLOPTION_TX]]
+                # delete one *TX* cell but we need to keep one dedicated
+                # cell to our parent at least
+                if len(tx_cells) > 1:
                     self.retry_count[neighbor] = 0
-                    self._request_adding_cells(
+                    self._request_deleting_cells(
                         neighbor     = neighbor,
-                        num_tx_cells = severity
+                        num_cells    = 1,
+                        cell_options = self.TX_CELL_OPT
                     )
-                elif action == 0:
-                    tx_cells = [cell for cell in self.mote.tsch.get_cells(
-                            neighbor,
-                            self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
-                        ) if cell.options == [d.CELLOPTION_TX]]
-                    # delete one *TX* cell but we need to keep one dedicated
-                    # cell to our parent at least
-                    if len(tx_cells) > 1:
-                        self.retry_count[neighbor] = 0
-                        self._request_deleting_cells(
-                            neighbor     = neighbor,
-                            num_cells    = 3 - severity,
-                            cell_options = self.TX_CELL_OPT
-                        )
         else:
             assert cell_opt == self.RX_CELL_OPT
+            if d.MSF_LIM_NUMCELLSUSED_HIGH < self.rx_cell_utilization:
+                self.retry_count[neighbor] = 0
+                self._request_adding_cells(
+                    neighbor     = neighbor,
+                    num_tx_cells = 0,
+                    num_rx_cells = 1,
+                )
 
-            if rand_number <= self.EPSLON:
-
-                if d.MSF_LIM_NUMCELLSUSED_HIGH < self.rx_cell_utilization:
-                    self.traffic = 1
-                    action = 1
+            elif self.rx_cell_utilization < d.MSF_LIM_NUMCELLSUSED_LOW:
+                rx_cells = [cell for cell in self.mote.tsch.get_cells(
+                        neighbor,
+                        self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
+                    ) if cell.options == [d.CELLOPTION_RX]]
+                # delete one *TX* cell but we need to keep one dedicated
+                # cell to our parent at least
+                if len(rx_cells) > self.NUM_INITIAL_NEGOTIATED_RX_CELLS:
                     self.retry_count[neighbor] = 0
-                    self._request_adding_cells(
+                    self._request_deleting_cells(
                         neighbor     = neighbor,
-                        num_tx_cells = 0,
-                        num_rx_cells = 1,
+                        num_cells    = 1,
+                        cell_options = self.RX_CELL_OPT
                     )
 
-                elif self.rx_cell_utilization < d.MSF_LIM_NUMCELLSUSED_LOW:
-                    self.traffic = 0
-                    action = 0
-                    rx_cells = [cell for cell in self.mote.tsch.get_cells(
-                            neighbor,
-                            self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
-                        ) if cell.options == [d.CELLOPTION_RX]]
-                    # delete one *RX* cell but we need to keep one dedicated
-                    # cell to our parent at least
-                    if len(rx_cells) > self.NUM_INITIAL_NEGOTIATED_RX_CELLS:
-                        self.retry_count[neighbor] = 0
-                        self._request_deleting_cells(
-                            neighbor     = neighbor,
-                            num_cells    = 1,
-                            cell_options = self.RX_CELL_OPT
-                        )
-            else:
-                action = self.return_best_q_action(self.map_state_to_number(list_state_variables))
-                self.print_exploitation(
-                    traffic,
-                    queue_ratio,
-                    expected_number_of_packets_to_send,
-                    list_state_variables,
-                    action,
-                    tx_cells,
-                    rx_cells
-                )   
-                if action == 1:
-                    # add severity RX cells
-                    self.retry_count[neighbor] = 0
-                    self._request_adding_cells(
-                        neighbor     = neighbor,
-                        num_tx_cells = 0,
-                        num_rx_cells = severity,
-                    )
-                elif action == 0:
-                    rx_cells = [cell for cell in self.mote.tsch.get_cells(
-                            neighbor,
-                            self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
-                        ) if cell.options == [d.CELLOPTION_RX]]
-                    # delete one *RX* cell but we need to keep one dedicated
-                    # cell to our parent at least
-                    if len(rx_cells) > self.NUM_INITIAL_NEGOTIATED_RX_CELLS:
-                        self.retry_count[neighbor] = 0
-                        self._request_deleting_cells(
-                            neighbor     = neighbor,
-                            num_cells    = 3 - severity,
-                            cell_options = self.RX_CELL_OPT
-                        )
-
-        #computar variaveis do proximo estado
-        self.prev_prob = self.compute_prob_poission(10)
-        self.prev_queue_ratio = self.compute_queue_ratio()
-        self.prev_traffic = self.traffic
-        prev_expected_number_of_packets_to_send = self.return_max_num_packet_by_prob(self.prev_prob)
-        #computa Q(s,a) usando r(s,a)
-        list_prev_state_variables = [
-            self.prev_traffic,
-            self.discretize_queue_ratio(self.prev_queue_ratio),
-            self.discretize_expected_number_of_packets_to_send(prev_expected_number_of_packets_to_send)
-        ]
-        self.compute_q_table(list_state_variables,list_prev_state_variables,action,cell_opt)
-    
-    def map_state_to_number(self,list_discrete_variables):
-        state = 0
-        str_list = [str(variable) for variable in list_discrete_variables]
-        #convertion binary to decimal
-        for index,c in enumerate(str_list):
-            state += int(c) * 2**(2-index)
-        return state
-    
-    def compute_reward(self,list_state_variables,action,cell_opt):
-
-        traffic = list_state_variables[0]
-        queue = list_state_variables[1]
-        packet = list_state_variables[2]
-
-        if traffic == 1 and queue == 0 and packet == 0:
-            print('********************')
-        sum_variables = sum(list_state_variables)
-        if sum_variables >= 1 and action == 1:
-            return sum_variables
-        elif sum_variables == 0 and action == 2:
-            return 3
-        elif sum_variables == 0 and action == 0:
-            return 1
-        elif sum_variables >= 1 and (action == 0 or action == 2):
-            return -sum_variables
-        elif sum_variables == 0 and action == 1:
-            return -3
-
-
-    def return_best_q_value(self,state):
-        max_q_value = 0
-        for action in range(self.NUM_ACTIONS):
-            current_value = self.Q_table[state][action]
-            if current_value > max_q_value:
-                max_q_value = current_value
-        return max_q_value
-    
-    def return_best_q_action(self,state):
-        max_q_value = -100
-        best_action = 0
-        for action in range(self.NUM_ACTIONS):
-            current_value = self.Q_table[state][action]
-            if current_value > max_q_value:
-                best_action = action
-                max_q_value = current_value
-        return best_action
-    
-    def compute_q_table(self,list_state_variables,list_prev_state_variables,action,cell_opt):
-        curr_state = self.map_state_to_number(list_state_variables)
-        next_state = self.map_state_to_number(list_prev_state_variables)
-        #compute deltaQ
-        reward = self.compute_reward(list_state_variables,action,cell_opt)
-        # print(reward)
-        deltaQ = reward + self.BETA * self.return_best_q_value(next_state)
-        #compute Q_table[curr_state][action]
-        self.Q_table[curr_state][action] = (1 - self.ALFA) * self.Q_table[curr_state][action] + (self.ALFA * deltaQ)
 
     def _housekeeping_collision(self):
         """
