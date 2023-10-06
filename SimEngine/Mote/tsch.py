@@ -753,6 +753,7 @@ class Tsch(object):
                 ):
                 return False # isACKed
 
+
             # abort if I received a frame for someone else
             if (
                     (packet[u'mac'][u'dstMac'] != d.BROADCAST_ADDRESS)
@@ -760,6 +761,7 @@ class Tsch(object):
                     (self.mote.is_my_mac_addr(packet[u'mac'][u'dstMac']) is False)
                 ):
                 return False # isACKed
+
 
             # if I get here, I received a frame at the link layer (either unicast for me, or broadcast)
 
@@ -805,6 +807,7 @@ class Tsch(object):
                 # save the pending bit here since the packet instance may be made
                 # empty by an upper layer process
                 is_pending_bit_on = packet[u'mac'][u'pending_bit']
+
 
                 # dispatch to the right upper layer
                 if   packet[u'type'] == d.PKT_TYPE_SIXP:
