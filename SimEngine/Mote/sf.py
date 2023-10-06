@@ -251,7 +251,11 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                         }
                     )
                     self.tx_cell_utilization = tx_cell_utilization
-                # self._adapt_to_traffic(preferred_parent, self.TX_CELL_OPT)
+
+                self.mote.tsch.EPSLON = self.mote.tsch.MIN_EPSLON + (self.mote.tsch.MAX_EPSLON - self.mote.tsch.MIN_EPSLON)*np.exp(-self.mote.tsch.EPSLON_DECAY_RATE*self.mote.tsch.CURRENT_EPISODE)
+                self.mote.tsch.CURRENT_EPISODE = self.mote.tsch.CURRENT_EPISODE + 1
+
+                self._adapt_to_traffic(preferred_parent, self.TX_CELL_OPT)
                 self._reset_cell_counters(self.TX_CELL_OPT)
 
 
@@ -562,7 +566,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         return 1
     
     def discretize_dropped_packets(self,dropped_packets):
-        if dropped_packets <= 0.3:
+        if dropped_packets <= 0.1:
             return 0
         return 1
      
@@ -620,8 +624,10 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         # print(self.mote.tsch.dropped_packets)
         # print('--------------------')
 
-    def _adapt_to_traffic(self, neighbor, cell_opt,is_training):
+    def _adapt_to_traffic(self, neighbor, cell_opt):
         # reset retry counter
+        print("EPSLON")
+        print(self.mote.tsch.EPSLON)
         assert neighbor in self.retry_count
         if self.retry_count[neighbor] != -1:
             # we're in the middle of a 6P transaction; try later

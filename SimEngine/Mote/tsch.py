@@ -90,13 +90,13 @@ class Tsch(object):
         self.INTERVAL = 10
         self.dropped_packets = 0
         self.average_dropped_packets_in_interval = 0
-        self.CURRENT_EPISODE = -1
+        self.CURRENT_EPISODE = 0
         self.asn_is_synced = 0
 
         self.EPSLON = None
         self.MAX_EPSLON = 1.0           
         self.MIN_EPSLON = 0.05           
-        self.EPSLON_DECAY_RATE = 0.0005  
+        self.EPSLON_DECAY_RATE = 0.005  
 
         self.IS_TRAINING = True
 
@@ -1029,14 +1029,12 @@ class Tsch(object):
 
                 preferred_parent = self.mote.rpl.getPreferredParent()
 
-                if preferred_parent:
+                # if preferred_parent:
                     #comeco de um novo episodio
-                    self.EPSLON = self.MIN_EPSLON + (self.MAX_EPSLON - self.MIN_EPSLON)*np.exp(-self.EPSLON_DECAY_RATE*self.CURRENT_EPISODE+1)
-                    self.CURRENT_EPISODE = self.CURRENT_EPISODE + 1
 
                     #step
-                    print("Chamando adaptacao no slotframe " + str(slotframe_count) + " " + str(self.mote.id ))
-                    self.mote.sf._adapt_to_traffic(preferred_parent,self.mote.sf.TX_CELL_OPT,is_training = self.IS_TRAINING)
+                    # print("Chamando adaptacao no slotframe " + str(slotframe_count) + " " + str(self.mote.id ))
+                    # self.mote.sf._adapt_to_traffic(preferred_parent,self.mote.sf.TX_CELL_OPT,is_training = self.IS_TRAINING)
             else:
                 #is in the same slotframe. Do nothing
                 pass
