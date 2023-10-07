@@ -167,8 +167,11 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.dropped_packets = 0
         self.prev_dropped_packets = 0
         self.prev_energy_left = 0
+        self.prev_traffic = 0
         self.MAX_ENERGY = 1
         self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
+
+        self.sum_traffic = []
         #Q-TSCH parameters
         self.ALFA = self.settings.ALFA
         self.BETA = self.settings.BETA
@@ -569,6 +572,12 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         if dropped_packets <= 0.1:
             return 0
         return 1
+    
+    def discretize_traffic(self,traffic):
+        if traffic <= 9:
+            return 0
+        else:
+            return 1
      
     
     def compute_charge(self):
@@ -605,13 +614,11 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             if used:
                 self.num_rx_cells_used += 1
     
-    def print_exploitation(self,queue_ratio,dropped_packets,action):
+    def print_exploitation(self,queue_ratio,action,traffic):
         print('Mote Id')
         print(self.mote.id)
         print("Tamanho medio da fila")
         print(queue_ratio)
-        print("pacotes perdidos por fila cheia no intervalo")
-        print(dropped_packets)
         print("Carga")
         print(self.compute_charge())
         print("Tamnho da fila")
@@ -620,14 +627,15 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         print(self.Q_table)
         print('Acao')
         print(action)
-        # print("Pacotes perdidos no total")
-        # print(self.mote.tsch.dropped_packets)
-        # print('--------------------')
+        print('trafego')
+        print(traffic)
 
     def _adapt_to_traffic(self, neighbor, cell_opt):
-        # reset retry counter
+
         print("EPSLON")
         print(self.mote.tsch.EPSLON)
+
+        # reset retry counter
         assert neighbor in self.retry_count
         if self.retry_count[neighbor] != -1:
             # we're in the middle of a 6P transaction; try later
@@ -644,13 +652,13 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         ) if cell.options == [d.CELLOPTION_RX]]
         
         queue_ratio = self.prev_queue_ratio
-        dropped_packets = self.prev_dropped_packets
         energy_left = self.prev_energy_left
+        traffic = self.prev_traffic
 
         list_state_variables = [
-            self.queue_ratio,
-            self.dropped_packets,
-            energy_left
+            queue_ratio,
+            energy_left,
+            traffic
         ]
         
         state_number = self.map_state_to_number(list_state_variables)
@@ -664,8 +672,8 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
 
         self.print_exploitation(
             queue_ratio,
-            dropped_packets,
-            action
+            action,
+            traffic
         )
 
         if action == 1:
@@ -673,13 +681,13 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                 self.retry_count[neighbor] = 0
                 self._request_adding_cells(
                     neighbor     = neighbor,
-                    num_rx_cells = 10
+                    num_rx_cells = 1
                 )
             else:
                 self.retry_count[neighbor] = 0
                 self._request_adding_cells(
                     neighbor     = neighbor,
-                    num_tx_cells = 10
+                    num_tx_cells = 1
                 )
         elif action == 0:
             if cell_opt == self.RX_CELL_OPT:
@@ -687,7 +695,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     self.retry_count[neighbor] = 0
                     self._request_deleting_cells(
                         neighbor     = neighbor,
-                        num_cells    = 10,
+                        num_cells    = 1,
                         cell_options = cell_opt
                     )
             else:
@@ -695,43 +703,52 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     self.retry_count[neighbor] = 0
                     self._request_deleting_cells(
                         neighbor     = neighbor,
-                        num_cells    = 10,
+                        num_cells    = 1,
                         cell_options = cell_opt
                     )
         else:
             pass
         #computar variaveis do proximo estado
         self.prev_queue_ratio = self.compute_queue_ratio()
-        self.prev_dropped_packets = self.mote.tsch.average_dropped_packets_in_interval
         self.prev_energy_left = self.compute_charge()
+        self.prev_traffic = self.mote.tsch.num_packets_for_me + self.mote.tsch.num_packets_not_for_me
+        #reinicia as variaveis de trafego
+        self.sum_traffic.append(self.prev_traffic)
+        self.mote.tsch.num_packets_for_me = 0
+        self.mote.tsch.num_packets_not_for_me = 0
         #computa Q(s,a) usando r(s,a)
         list_next_state_variables = [
             self.prev_queue_ratio,
-            self.prev_dropped_packets,
-            self.prev_energy_left
+            self.prev_energy_left,
+            self.prev_traffic
         ]
         self.compute_q_table(list_state_variables,list_next_state_variables,action,cell_opt)
     
     def map_state_to_number(self,list_discrete_variables):
 
         queue_ratio = list_discrete_variables[0]
-        dropped_packets = list_discrete_variables[1]
+        traffic = list_discrete_variables[2]
 
-        binary_number = str(self.discretize_queue_ratio(queue_ratio)) + str(self.discretize_dropped_packets(dropped_packets))
+        binary_number = str(self.discretize_queue_ratio(queue_ratio)) + str(self.discretize_dropped_packets(traffic))
         
         return int(binary_number,2)
     
     #quando remover uma celula
     def compute_reward(self, list_state_variables,list_next_state_variables):
+
         next_state = self.map_state_to_number(list_next_state_variables)
+
         queue_ratio = list_state_variables[0]
-        energy_left = list_state_variables[2]
+        energy_left = list_state_variables[1]
+        traffic = list_state_variables[2]
+
         if energy_left > self.MAX_ENERGY:
             self.MAX_ENERGY = energy_left
+            
         if next_state == 0:
             return 5
         else:
-            return 0.6*math.e**(-queue_ratio) + 0.4*(energy_left)/self.MAX_ENERGY
+            return 0.4*math.e**(-traffic) + 0.3*math.e**(-queue_ratio) + 0.3*(energy_left)/self.MAX_ENERGY
 
         
     def return_best_q_value(self,state):

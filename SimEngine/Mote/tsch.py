@@ -88,8 +88,6 @@ class Tsch(object):
         self.current_slotframe = -1
         self.array_queue_sizes_on_slotframes = []        
         self.INTERVAL = 10
-        self.dropped_packets = 0
-        self.average_dropped_packets_in_interval = 0
         self.CURRENT_EPISODE = 0
         self.asn_is_synced = 0
 
@@ -98,7 +96,8 @@ class Tsch(object):
         self.MIN_EPSLON = 0.05           
         self.EPSLON_DECAY_RATE = 0.005  
 
-        self.IS_TRAINING = True
+        self.num_packets_not_for_me = 0
+        self.num_packets_for_me = 0
 
         assert self.settings.phy_numChans <= len(d.TSCH_HOPPING_SEQUENCE)
         self.hopping_sequence = (
@@ -404,7 +403,6 @@ class Tsch(object):
             # my TX queue is full
 
             # drop
-            self.dropped_packets = self.dropped_packets + 1
             self.mote.drop_packet(
                 packet  = packet,
                 reason  = SimEngine.SimLog.DROPREASON_TXQUEUE_FULL
@@ -760,10 +758,12 @@ class Tsch(object):
                     and
                     (self.mote.is_my_mac_addr(packet[u'mac'][u'dstMac']) is False)
                 ):
+                self.num_packets_not_for_me = self.num_packets_not_for_me + 1
                 return False # isACKed
 
 
             # if I get here, I received a frame at the link layer (either unicast for me, or broadcast)
+            self.num_packets_for_me = self.num_packets_for_me + 1
 
             # log
             self.log(
@@ -1012,13 +1012,20 @@ class Tsch(object):
         slotframe_count = self.engine.slotframe_count - 1
         if slotframe_count == 0:
             self.current_slotframe = 0
+        #ultimo slotframe
+        elif slotframe_count == self.settings.exec_numSlotframesPerRun-1:
+            print(">>>>>>>>>>>>>>>>>>>>>>>>>")
+            print('Media do trafego para o no {0}'.format(self.mote.id))
+            traffic_list = self.mote.sf.sum_traffic
+            if(len(traffic_list)) != 0:
+                mean = sum(traffic_list)/float(len(traffic_list))
+                print(str(mean) + ",")
+            else:
+                print('None')
+            print(">>>>>>>>>>>>>>>>>>>>>>>>>")
         else:
             #switch slotframes
             if slotframe_count != self.current_slotframe:
-
-                if slotframe_count % 10 == 0:
-                    self.average_dropped_packets_in_interval = self.dropped_packets/self.INTERVAL
-                    self.dropped_packets = 0
 
                 self.array_queue_sizes_on_slotframes.append(len(self.txQueue))
 
