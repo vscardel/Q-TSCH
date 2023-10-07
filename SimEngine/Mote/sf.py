@@ -676,18 +676,21 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             traffic
         )
 
+        num_cells = int(self.discretize_traffic(traffic) + self.discretize_queue_ratio(queue_ratio) + (energy_left/1000))
+
+
         if action == 1:
             if cell_opt == self.RX_CELL_OPT:
                 self.retry_count[neighbor] = 0
                 self._request_adding_cells(
                     neighbor     = neighbor,
-                    num_rx_cells = 1
+                    num_rx_cells = num_cells
                 )
             else:
                 self.retry_count[neighbor] = 0
                 self._request_adding_cells(
                     neighbor     = neighbor,
-                    num_tx_cells = 1
+                    num_tx_cells = num_cells
                 )
         elif action == 0:
             if cell_opt == self.RX_CELL_OPT:
@@ -695,7 +698,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     self.retry_count[neighbor] = 0
                     self._request_deleting_cells(
                         neighbor     = neighbor,
-                        num_cells    = 1,
+                        num_cells    = num_cells,
                         cell_options = cell_opt
                     )
             else:
@@ -703,7 +706,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     self.retry_count[neighbor] = 0
                     self._request_deleting_cells(
                         neighbor     = neighbor,
-                        num_cells    = 1,
+                        num_cells    = num_cells,
                         cell_options = cell_opt
                     )
         else:
