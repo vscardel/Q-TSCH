@@ -172,6 +172,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
 
         self.sum_traffic = []
+        self.sum_queue = []
         #Q-TSCH parameters
         self.ALFA = self.settings.ALFA
         self.BETA = self.settings.BETA
@@ -564,7 +565,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             #self.print_state_variables("rx")
             
     def discretize_queue_ratio(self,queue_ratio):
-        if queue_ratio <= 1:
+        if queue_ratio <= 0.3:
             return 0
         return 1
     
@@ -714,8 +715,12 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.prev_queue_ratio = self.compute_queue_ratio()
         self.prev_energy_left = self.compute_charge()
         self.prev_traffic = self.mote.tsch.num_packets_for_me + self.mote.tsch.num_packets_not_for_me
-        #reinicia as variaveis de trafego
+
+        #para o calculo das medias
         self.sum_traffic.append(self.prev_traffic)
+        self.sum_queue.append(self.prev_queue_ratio)
+
+        #reinicia as variaveis de trafego
         self.mote.tsch.num_packets_for_me = 0
         self.mote.tsch.num_packets_not_for_me = 0
         #computa Q(s,a) usando r(s,a)
@@ -741,7 +746,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         next_state = self.map_state_to_number(list_next_state_variables)
 
         queue_ratio = list_next_state_variables[0]
-        energy_left = list_next_state_variables[1]
+        energy_left = list_state_variables[1]
         traffic = list_next_state_variables[2]
 
         if energy_left > self.MAX_ENERGY:
@@ -751,8 +756,8 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             #5
             return 5
         else:
-            #0.4, 0.5, 0.3
-            return 0.4*math.e**(-traffic) + 0.5*math.e**(-queue_ratio) + 0.3*(energy_left)/self.MAX_ENERGY
+            #0.4, 0.3, 0.3
+            return 0.5*math.e**(-traffic) + 0.5*math.e**(-queue_ratio) + 0.5*(energy_left)/self.MAX_ENERGY
             
 
         

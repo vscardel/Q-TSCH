@@ -1023,6 +1023,13 @@ class Tsch(object):
             else:
                 print('None')
             print(">>>>>>>>>>>>>>>>>>>>>>>>>")
+            print("Media da fila para o no {0}".format(self.mote.id))
+            queue_list = self.mote.sf.sum_queue
+            if len(queue_list) != 0:
+                mean = sum(queue_list)/float(len(queue_list))
+                print(str(mean) + ",")
+            else:
+                print('None')
         else:
             #switch slotframes
             if slotframe_count != self.current_slotframe:
