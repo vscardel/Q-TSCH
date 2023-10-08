@@ -28,7 +28,7 @@
           "ALFA":0.7,
           "BETA":0.3,
           "phy_numChans":16,
-          "exec_numSlotframesPerRun":3750,
+          "exec_numSlotframesPerRun":10000,
           "fragmentation":"FragmentForwarding",
           "app_burstNumPackets":0,
           "fragmentation_ff_discard_vrb_entry_policy":[
