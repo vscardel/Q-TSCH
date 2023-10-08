@@ -676,21 +676,20 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             traffic
         )
 
-        num_cells = int(self.discretize_traffic(traffic) + self.discretize_queue_ratio(queue_ratio) + (energy_left/1000))
-
+        add_cells = int(self.discretize_traffic(traffic) + self.discretize_queue_ratio(queue_ratio) + (energy_left/1000))
 
         if action == 1:
             if cell_opt == self.RX_CELL_OPT:
                 self.retry_count[neighbor] = 0
                 self._request_adding_cells(
                     neighbor     = neighbor,
-                    num_rx_cells = num_cells
+                    num_rx_cells = add_cells
                 )
             else:
                 self.retry_count[neighbor] = 0
                 self._request_adding_cells(
                     neighbor     = neighbor,
-                    num_tx_cells = num_cells
+                    num_tx_cells = add_cells
                 )
         elif action == 0:
             if cell_opt == self.RX_CELL_OPT:
@@ -698,7 +697,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     self.retry_count[neighbor] = 0
                     self._request_deleting_cells(
                         neighbor     = neighbor,
-                        num_cells    = num_cells,
+                        num_cells    = add_cells,
                         cell_options = cell_opt
                     )
             else:
@@ -706,7 +705,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     self.retry_count[neighbor] = 0
                     self._request_deleting_cells(
                         neighbor     = neighbor,
-                        num_cells    = num_cells,
+                        num_cells    = add_cells,
                         cell_options = cell_opt
                     )
         else:
@@ -741,17 +740,20 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
 
         next_state = self.map_state_to_number(list_next_state_variables)
 
-        queue_ratio = list_state_variables[0]
-        energy_left = list_state_variables[1]
-        traffic = list_state_variables[2]
+        queue_ratio = list_next_state_variables[0]
+        energy_left = list_next_state_variables[1]
+        traffic = list_next_state_variables[2]
 
         if energy_left > self.MAX_ENERGY:
             self.MAX_ENERGY = energy_left
             
         if next_state == 0:
+            #5
             return 5
         else:
-            return 0.4*math.e**(-traffic) + 0.3*math.e**(-queue_ratio) + 0.3*(energy_left)/self.MAX_ENERGY
+            #0.4, 0.5, 0.3
+            return 0.4*math.e**(-traffic) + 0.5*math.e**(-queue_ratio) + 0.3*(energy_left)/self.MAX_ENERGY
+            
 
         
     def return_best_q_value(self,state):
