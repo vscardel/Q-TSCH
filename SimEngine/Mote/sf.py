@@ -169,6 +169,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.prev_energy_left = 0
         self.prev_traffic = 0
         self.MAX_ENERGY = 1
+        self.MAX_NUM_CELLS = 5
         self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
 
         self.sum_traffic = []
@@ -679,7 +680,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
 
         add_cells = int(self.discretize_traffic(traffic) + self.discretize_queue_ratio(queue_ratio) + (energy_left/1000))
 
-        if action == 1:
+        if action == 1 and len(tx_cells) <= self.MAX_NUM_CELLS:
             if cell_opt == self.RX_CELL_OPT:
                 self.retry_count[neighbor] = 0
                 self._request_adding_cells(
@@ -692,7 +693,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     neighbor     = neighbor,
                     num_tx_cells = add_cells
                 )
-        elif action == 0:
+        elif action == 0 and len(tx_cells) <= self.MAX_NUM_CELLS:
             if cell_opt == self.RX_CELL_OPT:
                 if len(rx_cells) > 1:
                     self.retry_count[neighbor] = 0
