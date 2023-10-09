@@ -170,6 +170,8 @@ class Tsch(object):
             self._stop_synchronization_timer()
             self.txQueue = []
             self.received_eb_list = {}
+            self.EPSLON = None
+
             # we may have this timer task
             self.engine.removeFutureEvent(
                 uniqueTag=(self.mote.id, u'tsch', u'wait_secjoin')

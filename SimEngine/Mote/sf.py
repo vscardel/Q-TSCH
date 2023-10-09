@@ -217,6 +217,10 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             self.engine.removeFutureEvent(
                 (self.mote.id, u'_housekeeping_collision')
             )
+        
+        #reboot the q table
+        self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
+
 
     # === indications from other layers
 
@@ -604,6 +608,28 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             lifetime_AA_years = (2821.5*1000/avg_current_uA)/(24.0*365)        
             return avg_current_uA
         return 0
+
+    def msf_cell_decision(self,cell_opt):
+
+        #do nothing
+        action = 2
+
+        if cell_opt == self.TX_CELL_OPT:
+
+            if d.MSF_LIM_NUMCELLSUSED_HIGH < self.tx_cell_utilization:
+                action = 1
+
+            elif self.tx_cell_utilization < d.MSF_LIM_NUMCELLSUSED_LOW:
+                action = 0
+        else:
+            assert cell_opt == self.RX_CELL_OPT
+            if d.MSF_LIM_NUMCELLSUSED_HIGH < self.rx_cell_utilization:
+               action = 1
+            elif self.rx_cell_utilization < d.MSF_LIM_NUMCELLSUSED_LOW:
+                action = 0
+        
+        return action
+
     
     def _update_cell_counters(self, cell_opt, used):
         if cell_opt == self.TX_CELL_OPT:
@@ -758,7 +784,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             return 5
         else:
             #0.4, 0.3, 0.3
-            return 0.5*math.e**(-traffic) + 0.5*math.e**(-queue_ratio) + 0.5*(energy_left)/self.MAX_ENERGY
+            return 0.5*math.e**(-traffic) + 0.5*math.e**(-queue_ratio) + 0.5*(energy_left)/self.MAX_ENERGY 
             
 
         
