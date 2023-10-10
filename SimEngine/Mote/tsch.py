@@ -170,7 +170,20 @@ class Tsch(object):
             self._stop_synchronization_timer()
             self.txQueue = []
             self.received_eb_list = {}
+            self.AVERAGE_QUEUE_LENGTH = 0
+            self.current_slotframe = -1
+            self.array_queue_sizes_on_slotframes = []        
+            self.INTERVAL = 10
+            self.CURRENT_EPISODE = 0
+            self.asn_is_synced = 0
+
             self.EPSLON = None
+            self.MAX_EPSLON = 1.0           
+            self.MIN_EPSLON = 0.05           
+            self.EPSLON_DECAY_RATE = 0.005  
+
+            self.num_packets_not_for_me = 0
+            self.num_packets_for_me = 0
 
             # we may have this timer task
             self.engine.removeFutureEvent(

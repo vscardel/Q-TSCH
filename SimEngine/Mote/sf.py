@@ -220,6 +220,18 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         
         #reboot the q table
         self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
+        self.first_state = True
+        self.prev_queue_ratio = 0
+        self.queue_ratio = 0
+        self.dropped_packets = 0
+        self.prev_dropped_packets = 0
+        self.prev_energy_left = 0
+        self.prev_traffic = 0
+        self.MAX_ENERGY = 1
+        self.MAX_NUM_CELLS = 5
+        self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
+        self.sum_traffic = []
+        self.sum_queue = []
 
 
     # === indications from other layers
@@ -783,7 +795,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             #5
             return 5
         else:
-            #0.4, 0.3, 0.3
+            #0.5 0.5 0.5
             return 0.5*math.e**(-traffic) + 0.5*math.e**(-queue_ratio) + 0.5*(energy_left)/self.MAX_ENERGY 
             
 
