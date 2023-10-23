@@ -145,7 +145,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
 
     #Q-TSCH constants
     NUM_ACTIONS = 3
-    NUM_STATES = 4
+    NUM_STATES = 8
 
     def __init__(self, mote):
         # initialize parent class
@@ -167,12 +167,12 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.dropped_packets = 0
         self.prev_dropped_packets = 0
         self.prev_energy_left = 0
-        self.prev_traffic = 0
+        self.prev_num_rx_ack = 0
         self.MAX_ENERGY = 1
         self.MAX_NUM_CELLS = 5
         self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
 
-        self.sum_traffic = []
+        self.sum_rx_ack = []
         self.sum_queue = []
         #Q-TSCH parameters
         self.ALFA = self.settings.ALFA
@@ -230,7 +230,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.MAX_ENERGY = 1
         self.MAX_NUM_CELLS = 5
         self.Q_table = np.zeros((self.NUM_STATES,self.NUM_ACTIONS))
-        self.sum_traffic = []
+        self.sum_rx_ack = []
         self.sum_queue = []
 
 
@@ -241,6 +241,9 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
 
     def compute_queue_ratio(self):
         return self.mote.tsch.AVERAGE_QUEUE_LENGTH
+    
+    def compute_rx_ack(self):
+        return self.mote.tsch.AVERAGE_RX_ACKS
 
     def indication_tx_cell_elapsed(self, cell, sent_packet):
 
@@ -582,21 +585,9 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             #self.print_state_variables("rx")
             
     def discretize_queue_ratio(self,queue_ratio):
-        if queue_ratio <= 0.3:
+        if queue_ratio <= 0.118367346939:
             return 0
         return 1
-    
-    def discretize_dropped_packets(self,dropped_packets):
-        if dropped_packets <= 0.1:
-            return 0
-        return 1
-    
-    def discretize_traffic(self,traffic):
-        if traffic <= 9:
-            return 0
-        else:
-            return 1
-     
     
     def compute_charge(self):
         charge = 0
@@ -654,26 +645,26 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             if used:
                 self.num_rx_cells_used += 1
     
-    def print_exploitation(self,queue_ratio,action,traffic):
+    def print_exploitation(self,queue_ratio,action,rx_ack):
         print('Mote Id')
         print(self.mote.id)
         print("Tamanho medio da fila")
         print(queue_ratio)
         print("Carga")
         print(self.compute_charge())
+        print("Resultado do calculo do RX_ACK")
+        print(rx_ack)
         print("Tamnho da fila")
         print(len(self.mote.tsch.txQueue))
         print('Q TABLE')
         print(self.Q_table)
         print('Acao')
         print(action)
-        print('trafego')
-        print(traffic)
 
     def _adapt_to_traffic(self, neighbor, cell_opt):
 
+
         print("EPSLON")
-        print(self.mote.tsch.EPSLON)
 
         # reset retry counter
         assert neighbor in self.retry_count
@@ -693,12 +684,12 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         
         queue_ratio = self.prev_queue_ratio
         energy_left = self.prev_energy_left
-        traffic = self.prev_traffic
+        num_rx_ack = self.prev_num_rx_ack
 
         list_state_variables = [
             queue_ratio,
             energy_left,
-            traffic
+            num_rx_ack
         ]
         
         state_number = self.map_state_to_number(list_state_variables)
@@ -713,12 +704,19 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.print_exploitation(
             queue_ratio,
             action,
-            traffic
+            num_rx_ack
         )
 
-        add_cells = int(self.discretize_traffic(traffic) + self.discretize_queue_ratio(queue_ratio) + (energy_left/1000))
+        discrete_variables = self.discretize_variables(list_state_variables)
 
-        if action == 1 and len(tx_cells) <= self.MAX_NUM_CELLS:
+        discrete_queue = discrete_variables[0]
+        discrete_energy_left = discrete_variables[1]
+        discrete_num_rx_ack = discrete_variables[2]
+
+        add_cells =  (discrete_queue) + (discrete_num_rx_ack) + (discrete_energy_left)  
+        remove_cells =  (1-discrete_queue) + (1-discrete_num_rx_ack) + (1-discrete_energy_left)  
+
+        if action == 1:
             if cell_opt == self.RX_CELL_OPT:
                 self.retry_count[neighbor] = 0
                 self._request_adding_cells(
@@ -731,21 +729,21 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     neighbor     = neighbor,
                     num_tx_cells = add_cells
                 )
-        elif action == 0 and len(tx_cells) <= self.MAX_NUM_CELLS:
+        elif action == 0:
             if cell_opt == self.RX_CELL_OPT:
-                if len(rx_cells) > 1:
+                if len(rx_cells) >= 3:
                     self.retry_count[neighbor] = 0
                     self._request_deleting_cells(
                         neighbor     = neighbor,
-                        num_cells    = add_cells,
+                        num_cells    = 1,
                         cell_options = cell_opt
                     )
             else:
-                if len(tx_cells) > 1:
+                if len(tx_cells) >= 3 :
                     self.retry_count[neighbor] = 0
                     self._request_deleting_cells(
                         neighbor     = neighbor,
-                        num_cells    = add_cells,
+                        num_cells    = 1,
                         cell_options = cell_opt
                     )
         else:
@@ -753,50 +751,76 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         #computar variaveis do proximo estado
         self.prev_queue_ratio = self.compute_queue_ratio()
         self.prev_energy_left = self.compute_charge()
-        self.prev_traffic = self.mote.tsch.num_packets_for_me + self.mote.tsch.num_packets_not_for_me
+        self.prev_num_rx_ack = self.compute_rx_ack()
 
-        #para o calculo das medias
-        self.sum_traffic.append(self.prev_traffic)
+        #para os calculos das medias
         self.sum_queue.append(self.prev_queue_ratio)
+        self.sum_rx_ack.append(self.prev_num_rx_ack)
 
-        #reinicia as variaveis de trafego
-        self.mote.tsch.num_packets_for_me = 0
-        self.mote.tsch.num_packets_not_for_me = 0
         #computa Q(s,a) usando r(s,a)
         list_next_state_variables = [
             self.prev_queue_ratio,
             self.prev_energy_left,
-            self.prev_traffic
+            self.prev_num_rx_ack
         ]
+
+        discrete_curr_state_variables = self.discretize_variables(list_state_variables)
+        discrete_next_state_variables = self.discretize_variables(list_next_state_variables)
+
         self.compute_q_table(list_state_variables,list_next_state_variables,action,cell_opt)
+
+
+    def discretize_variables(self,list_variables):
+
+        queue_ratio = list_variables[0]
+        energy_left = list_variables[1]
+        num_rx_ack = list_variables[2]
+
+        discrete_energy_left = self.compute_discrete_energy_left(energy_left)
+        discrete_queue_ratio = self.discretize_queue_ratio(queue_ratio)
+        discrete_num_rx_ack = self.discretize_num_rx_ack(num_rx_ack)
+
+        return [discrete_queue_ratio,discrete_energy_left,discrete_num_rx_ack]
+        
+    def discretize_num_rx_ack(self,num_rx_ack):
+        if num_rx_ack <= 0.0683673469388:
+            return 0
+        return 1
     
-    def map_state_to_number(self,list_discrete_variables):
+    def compute_discrete_energy_left(self,energy_left):
+        if energy_left >= 500:
+            return 1
+        return 0
 
-        queue_ratio = list_discrete_variables[0]
-        traffic = list_discrete_variables[2]
+    def map_state_to_number(self,list_state_variables):
+        
+        discrete_variables = self.discretize_variables(list_state_variables)
 
-        binary_number = str(self.discretize_queue_ratio(queue_ratio)) + str(self.discretize_dropped_packets(traffic))
+        discrete_num_rx_ack = discrete_variables[2]
+        discrete_energy_left = discrete_variables[1]
+        discrete_queue_ratio = discrete_variables[0]
+
+        binary_number = str(discrete_queue_ratio) + str(discrete_num_rx_ack) + str(discrete_energy_left)
         
         return int(binary_number,2)
+
     
     #quando remover uma celula
     def compute_reward(self, list_state_variables,list_next_state_variables):
 
         next_state = self.map_state_to_number(list_next_state_variables)
 
-        queue_ratio = list_next_state_variables[0]
-        energy_left = list_state_variables[1]
-        traffic = list_next_state_variables[2]
+        discrete_variables = self.discretize_variables(list_next_state_variables)
 
-        if energy_left > self.MAX_ENERGY:
-            self.MAX_ENERGY = energy_left
+        discrete_queue = discrete_variables[0]
+        discrete_energy_left = discrete_variables[1]
+        discrete_num_rx_ack = discrete_variables[2]
             
-        if next_state == 0:
+        if next_state == 1:
             #5
-            return 5
+            return 3
         else:
-            #0.5 0.5 0.5
-            return 0.5*math.e**(-traffic) + 0.5*math.e**(-queue_ratio) + 0.5*(energy_left)/self.MAX_ENERGY 
+            return (1-discrete_queue) + (1-discrete_num_rx_ack) + (+discrete_energy_left)  
             
 
         

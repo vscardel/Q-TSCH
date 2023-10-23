@@ -86,10 +86,13 @@ class Tsch(object):
         #Q-TSCH variables
         self.AVERAGE_QUEUE_LENGTH = 0
         self.current_slotframe = -1
-        self.array_queue_sizes_on_slotframes = []        
+        self.array_queue_sizes_on_slotframes = []      
+        self.array_rxs_acks = []  
         self.INTERVAL = 10
         self.CURRENT_EPISODE = 0
         self.asn_is_synced = 0
+        self.prev_rx_ack = 0
+
 
         self.EPSLON = None
         self.MAX_EPSLON = 1.0           
@@ -181,6 +184,8 @@ class Tsch(object):
             self.MAX_EPSLON = 1.0           
             self.MIN_EPSLON = 0.05           
             self.EPSLON_DECAY_RATE = 0.005  
+            self.prev_rx_ack = 0
+
 
             self.num_packets_not_for_me = 0
             self.num_packets_for_me = 0
@@ -1016,7 +1021,7 @@ class Tsch(object):
             ):
             del packet_to_send[u'backoff_remaining_delay']
         return active_cell, packet_to_send
-
+    
     def _schedule_next_active_slot(self):
 
         assert self.getIsSync()
@@ -1025,23 +1030,25 @@ class Tsch(object):
         tsCurrent = asn % self.settings.tsch_slotframeLength
 
         slotframe_count = self.engine.slotframe_count - 1
+        #primeiro slotframe
         if slotframe_count == 0:
             self.current_slotframe = 0
         #ultimo slotframe
         elif slotframe_count == self.settings.exec_numSlotframesPerRun-1:
-            print(">>>>>>>>>>>>>>>>>>>>>>>>>")
-            print('Media do trafego para o no {0}'.format(self.mote.id))
-            traffic_list = self.mote.sf.sum_traffic
-            if(len(traffic_list)) != 0:
-                mean = sum(traffic_list)/float(len(traffic_list))
-                print(str(mean) + ",")
-            else:
-                print('None')
-            print(">>>>>>>>>>>>>>>>>>>>>>>>>")
-            print("Media da fila para o no {0}".format(self.mote.id))
-            queue_list = self.mote.sf.sum_queue
-            if len(queue_list) != 0:
-                mean = sum(queue_list)/float(len(queue_list))
+            # print("Status para o no {0}".format(self.mote.id))
+            # print(self.mote.radio.stats)
+            # print(">>>>>>>>>>>>>>>>>>>>>>>>>")
+            # print("Media da fila para o no {0}".format(self.mote.id))
+            # queue_list = self.mote.sf.sum_queue
+            # if len(queue_list) != 0:
+            #     mean = sum(queue_list)/float(len(queue_list))
+            #     print(str(mean) + ",")
+            # else:
+            #     print('None')
+            # print("Media de rxs acks para o no {0}".format(self.mote.id))
+            rx_list = self.mote.sf.sum_rx_ack
+            if len(rx_list) != 0:
+                mean = sum(rx_list)/float(len(rx_list))
                 print(str(mean) + ",")
             else:
                 print('None')
@@ -1051,11 +1058,16 @@ class Tsch(object):
 
                 self.array_queue_sizes_on_slotframes.append(len(self.txQueue))
 
+                self.array_rxs_acks.append(self.mote.radio.stats["rx_data_tx_ack"] - self.prev_rx_ack)
+                self.prev_rx_ack = self.mote.radio.stats["rx_data_tx_ack"]
+
                 if len(self.array_queue_sizes_on_slotframes) == self.INTERVAL:
 
                     self.AVERAGE_QUEUE_LENGTH = sum(self.array_queue_sizes_on_slotframes)/float(self.INTERVAL)
+                    self.AVERAGE_RX_ACKS = sum(self.array_rxs_acks)/float(self.INTERVAL)
 
                     self.array_queue_sizes_on_slotframes.pop(0)
+                    self.array_rxs_acks.pop(0)
                     
                 self.current_slotframe = slotframe_count
 
