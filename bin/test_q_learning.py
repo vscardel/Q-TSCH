@@ -4,7 +4,6 @@ import json
 if __name__ == '__main__':
 
     UPPER_LIMIT = 11
-    FIXED_VALUE = 0.2
   
     for ALFA in range(1,UPPER_LIMIT,2):
 

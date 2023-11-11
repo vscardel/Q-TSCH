@@ -645,7 +645,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             if used:
                 self.num_rx_cells_used += 1
     
-    def print_exploitation(self,queue_ratio,action,rx_ack):
+    def print_exploitation(self,queue_ratio,action,rx_ack,num_rx_cells,num_tx_cells):
         print('Mote Id')
         print(self.mote.id)
         print("Tamanho medio da fila")
@@ -660,6 +660,10 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         print(self.Q_table)
         print('Acao')
         print(action)
+        print('num tx cells')
+        print(num_tx_cells)
+        print('num rx cells')
+        print(num_rx_cells)
 
     def _adapt_to_traffic(self, neighbor, cell_opt):
 
@@ -704,7 +708,9 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         self.print_exploitation(
             queue_ratio,
             action,
-            num_rx_ack
+            num_rx_ack,
+            len(rx_cells),
+            len(tx_cells)
         )
 
         discrete_variables = self.discretize_variables(list_state_variables)

@@ -95,6 +95,7 @@ def plot_cdf(data, key, subfolder):
     plt.legend()
     savefig(subfolder, key + ".cdf")
     plt.clf()
+    plt.xlim(0, 8)
 
 def plot_box(data, key, subfolder):
     plt.boxplot(list(data.values()))
@@ -102,6 +103,7 @@ def plot_box(data, key, subfolder):
     plt.ylabel(key)
     savefig(subfolder, key)
     plt.clf()
+    plt.ylim(0, 5000)
 
 def savefig(output_folder, output_name, output_format="png"):
     # check if output folder exists and create it if not
