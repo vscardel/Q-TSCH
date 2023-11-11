@@ -17,7 +17,7 @@
           
           "rpl_daoPeriod":60,
           "fragmentation_ff_vrb_table_size":50,
-          "conn_trace":null,
+          "conn_trace":"../traces/grenoble.k7.gz",
           "app_pkLength":90,
           "rpl_extensions":[
              "dis_unicast"
@@ -26,7 +26,7 @@
           "app_pkPeriod":60,
           "app":"AppIndustrialMonitoring",
           "phy_numChans":16,
-          "exec_numSlotframesPerRun":20000,
+          "exec_numSlotframesPerRun":3750,
           "fragmentation":"FragmentForwarding",
           "app_burstNumPackets":0,
           "fragmentation_ff_discard_vrb_entry_policy":[
@@ -42,7 +42,7 @@
           "tsch_tx_queue_size":                          5,
           "tsch_max_tx_retries":                         4,
           
-          "conn_class":"Random",
+          "conn_class":"K7",
           "conn_random_init_min_neighbors":3,
           "conn_random_square_side":2.0,
           "sixlowpan_reassembly_buffers_num":1,
