@@ -584,7 +584,20 @@ class ConnectivityMatrixFullyMeshed(ConnectivityMatrixBase):
                 for channel in d.TSCH_HOPPING_SEQUENCE[:self.num_channels]:
                     self.set_pdr(src_id, dst_id, channel, perfect_pdr)
                     self.set_rssi(src_id, dst_id, channel, perfect_rssi)
-
+                    
+class ConnectivityMatrixFixed(ConnectivityMatrixBase):
+    def _additional_initialization(self):
+        with gzip.open(self.settings.conn_trace, u'r') as tracefile:
+            self.csv_header = tracefile.readline().decode('utf-8')
+            for line in tracefile:
+                split_line = line.split(',')
+                src_id = int(split_line[0])
+                dst_id = int(split_line[1])
+                rssi = float(split_line[3])
+                pdr = float(split_line[4][:-1])
+                for channel in d.TSCH_HOPPING_SEQUENCE[:self.num_channels]:
+                    self.set_pdr_both_directions(src_id, dst_id, channel, pdr)
+                    self.set_rssi_both_directions(src_id, dst_id, channel, rssi)
 
 class ConnectivityMatrixLinear(ConnectivityMatrixBase):
     """
