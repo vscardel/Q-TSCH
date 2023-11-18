@@ -25,8 +25,6 @@
          "conn_random_init_min_pdr":0.5,
          "app_pkPeriod":60,
          "app":"AppIndustrialMonitoring",
-         "ALFA":0.7,
-         "BETA":0.3,
          "phy_numChans":16,
          "exec_numSlotframesPerRun":3750,
          "fragmentation":"FragmentForwarding",
