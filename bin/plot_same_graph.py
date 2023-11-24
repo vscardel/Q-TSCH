@@ -46,12 +46,12 @@ def main(options):
     subfolders = list(
         [os.path.join(options.inputfolder, x) for x in os.listdir(options.inputfolder)]
     )
-    subfolder = "simData/ComparisonResults100"
+    subfolder = "simData/ComparisonResults200"
 
     for key in options.kpis:
         # load data
-        file_path_msf = "simData/MSF100/exec_numMotes_100.dat.kpi"
-        file_path_qlearning = 'simData/Qlearning100/exec_numMotes_100.dat.kpi'
+        file_path_msf = "simData/MSF200/exec_numMotes_200.dat.kpi"
+        file_path_qlearning = 'simData/Q-learning200/exec_numMotes_200.dat.kpi'
             
         curr_combination = "exec_numMotes_50"
 
