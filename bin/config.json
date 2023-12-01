@@ -17,7 +17,7 @@
           
           "rpl_daoPeriod":60,
           "fragmentation_ff_vrb_table_size":50,
-          "conn_trace":"../traces/fixedNetwork50.k7.gz",
+          "conn_trace":"../traces/fixedNetwork10.k7.gz",
           "app_pkLength":90,
           "rpl_extensions":[
              "dis_unicast"
@@ -43,7 +43,7 @@
          "tsch_tx_queue_size":                          5,
          "tsch_max_tx_retries":                         4,
           
-          "conn_class":"Fixed",
+          "conn_class":"Grid",
           "conn_random_init_min_neighbors":3,
           "conn_random_square_side":2.0,
           "sixlowpan_reassembly_buffers_num":1,
