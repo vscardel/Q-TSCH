@@ -571,6 +571,89 @@ class ConnectivityMatrixBase(object):
         output = u'\n'.join(output)
         print(output)
 
+class ConnectivityMatrixGrid(ConnectivityMatrixBase):
+
+    def _additional_initialization(self):
+
+        num_nodes = len(self.mote_id_list)
+        num_columns = int(math.floor(math.sqrt(num_nodes)))
+
+        aux_num_nodes = num_nodes
+        matrix_lines = []
+        #comeco inserindo o no zero
+        node_to_be_inserted = 0
+        #enquanto ainda tenho nos para adicionar
+        while aux_num_nodes != 0:
+            #disponho as colunas na matriz, criando as linhas conforme necessario
+            new_line = []
+            for i in range(num_columns):
+                #checo se ja inseri todos os nos antes de prosseguir
+                if aux_num_nodes == 0:
+                    break
+                new_line.append(node_to_be_inserted)
+                #atualizo o no a ser inserido
+                node_to_be_inserted = node_to_be_inserted + 1
+                #retiro um no do numero de nos a serem inseridos
+                aux_num_nodes = aux_num_nodes - 1
+            matrix_lines.append(new_line)
+
+        #calcula a posicao central para inserir o no zero
+        num_lines = len(matrix_lines)
+        central_x = int(math.floor(math.sqrt(num_columns)))
+        central_y = int(math.floor(math.sqrt(num_lines)))
+
+        #insere o no zero(raiz) na posicao central
+        aux = matrix_lines[central_y][central_x]
+        matrix_lines[central_y][central_x] = 0
+        matrix_lines[0][0] = aux
+
+        perfect_pdr = self.LINK_PERFECT[u'pdr']
+        perfect_rssi = self.LINK_PERFECT[u'rssi']
+
+        #varre a grid montando as conexoes
+        for i in range(num_lines):
+            for j in range(num_columns):
+                neighbours_list = []
+                #vizinho de baixo
+                try:
+                    neighbours_list.append(matrix_lines[i+1][j])
+                except:
+                    pass
+                #vizinho de cima
+                try:
+                    neighbours_list.append(matrix_lines[i-1][j])
+                except:
+                    pass
+                #vizinho da direita
+                try:
+                    neighbours_list.append(matrix_lines[i][j+1])
+                except:
+                    pass
+                #vizinho da esquerda
+                try:
+                    neighbours_list.append(matrix_lines[i][j-1])
+                except:
+                    pass
+                try:
+                    src_id = matrix_lines[i][j]
+                    for dst_id in neighbours_list:
+                        for channel in d.TSCH_HOPPING_SEQUENCE[:self.num_channels]:
+                            self.set_rssi_both_directions(
+                                src_id,
+                                dst_id,
+                                channel,
+                                perfect_rssi
+                            )
+
+                            self.set_pdr_both_directions(
+                                src_id,
+                                dst_id,
+                                channel,
+                                perfect_pdr
+                            )
+                except:
+                    pass
+
 class ConnectivityMatrixFullyMeshed(ConnectivityMatrixBase):
     """
     All nodes can hear all nodes with PDR=100%.
