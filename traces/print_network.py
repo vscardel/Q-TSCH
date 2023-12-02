@@ -11,8 +11,11 @@ def build_arguments(parser):
 def draw_grid_layout(G,destination_path):
     layout = nx.spring_layout(G)
     center_position = layout[0]
-    nx.draw(G, pos=layout, with_labels=True, font_weight='bold')
+    pos = nx.get_node_attributes(G, 'pos')
+    color_map = ['green' if node == 0 else 'blue' for node in G.nodes()]
+    nx.draw(G, pos=pos, with_labels=True, font_weight='bold',node_color = color_map)
     plt.savefig(destination_path)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Printa uma rede usando NetworkX')
     build_arguments(parser)
@@ -22,12 +25,10 @@ if __name__ == "__main__":
     grid_layout = args.grid_layout
     try:
         with open(file_path,'r') as f:
-
             data = json.load(f)
             G = nx.json_graph.node_link_graph(data)
 
             if grid_layout == 'y':
                 draw_grid_layout(G,destination_path)
-
     except OSError as error:
         print(error)

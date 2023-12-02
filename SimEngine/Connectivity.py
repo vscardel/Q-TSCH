@@ -24,7 +24,6 @@ from builtins import str
 from builtins import object
 from past.utils import old_div
 import copy
-import os
 import sys
 import random
 import math
@@ -32,6 +31,7 @@ import gzip
 import datetime as dt
 import json
 import itertools
+import os
 
 from . import SimSettings
 from . import SimLog
@@ -336,7 +336,7 @@ class Connectivity(object):
         for mote in self.engine.motes:
             assert mote.radio.state == d.RADIO_STATE_OFF
             assert mote.radio.channel is None
-        
+
         # schedule next propagation
         self._schedule_propagate()
 
@@ -597,7 +597,11 @@ class ConnectivityMatrixGrid(ConnectivityMatrixBase):
                 except:
                     break
                     
-                current_node = {"id":node_id, "label": "Node {0}".format(node_id)}
+                current_node = {
+                    "id":node_id, 
+                    "label": "Node {0}".format(node_id),
+                    "pos":[i,j]
+                }
                 json_graph['nodes'].append(current_node)
 
                 #vizinho de baixo
@@ -669,8 +673,8 @@ class ConnectivityMatrixGrid(ConnectivityMatrixBase):
 
         #calcula a posicao central para inserir o no zero
         num_lines = len(matrix_lines)
-        central_x = int(math.floor(math.sqrt(num_columns)))
-        central_y = int(math.floor(math.sqrt(num_lines)))
+        central_x = int(math.floor(num_columns/2))
+        central_y = int(math.floor(num_lines/2))
 
         #insere o no zero(raiz) na posicao central
         aux = matrix_lines[central_y][central_x]
@@ -745,10 +749,7 @@ class ConnectivityMatrixFullyMeshed(ConnectivityMatrixBase):
                 for channel in d.TSCH_HOPPING_SEQUENCE[:self.num_channels]:
                     self.set_pdr(src_id, dst_id, channel, perfect_pdr)
                     self.set_rssi(src_id, dst_id, channel, perfect_rssi)
-
-#implementa uma rede fixada recebida de um arquivo
-#parecido com o trace file, mas somente com a info
-#de conexao
+                    
 class ConnectivityMatrixFixed(ConnectivityMatrixBase):
     def _additional_initialization(self):
         with gzip.open(self.settings.conn_trace, u'r') as tracefile:
@@ -762,7 +763,6 @@ class ConnectivityMatrixFixed(ConnectivityMatrixBase):
                 for channel in d.TSCH_HOPPING_SEQUENCE[:self.num_channels]:
                     self.set_pdr_both_directions(src_id, dst_id, channel, pdr)
                     self.set_rssi_both_directions(src_id, dst_id, channel, rssi)
-
 
 class ConnectivityMatrixLinear(ConnectivityMatrixBase):
     """
