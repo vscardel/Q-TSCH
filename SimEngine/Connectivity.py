@@ -597,7 +597,11 @@ class ConnectivityMatrixGrid(ConnectivityMatrixBase):
                 except:
                     break
                     
-                current_node = {"id":node_id, "label": "Node {0}".format(node_id)}
+                current_node = {
+                    "id":node_id, 
+                    "label": "Node {0}".format(node_id),
+                    "pos":[i,j]
+                }
                 json_graph['nodes'].append(current_node)
 
                 #vizinho de baixo
