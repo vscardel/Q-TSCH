@@ -31,6 +31,7 @@ import gzip
 import datetime as dt
 import json
 import itertools
+import os
 
 from . import SimSettings
 from . import SimLog
@@ -573,6 +574,71 @@ class ConnectivityMatrixBase(object):
 
 class ConnectivityMatrixGrid(ConnectivityMatrixBase):
 
+    def build_output_path(self):
+        full_path = __file__
+        output_path = '/'
+        for folder in full_path.split('/'):
+            output_path = os.path.join(output_path,folder)
+            if folder == "master":
+                break
+        return os.path.join(output_path,"traces","grid_networks")
+
+    #recebe uma grid e converte no formato json
+    #aceito pelo NetworkX
+    def convertGridToJson(self,grid,num_lines,num_columns):
+        json_graph = {}
+        json_graph['nodes'] = []
+        json_graph['links'] = []
+        for i in range(num_lines):
+            for j in range(num_columns):
+
+                try:
+                    node_id = grid[i][j]
+                except:
+                    break
+                    
+                current_node = {"id":node_id, "label": "Node {0}".format(node_id)}
+                json_graph['nodes'].append(current_node)
+
+                #vizinho de baixo
+                try:
+                    neighbour_id = grid[i+1][j]
+                    link_go = {"source": node_id, "target": neighbour_id}
+                    link_back = {"source": neighbour_id, "target": node_id}
+                    json_graph['links'].append(link_go)
+                    json_graph['links'].append(link_back)
+                except:
+                    pass
+                #vizinho de cima
+                try:
+                    neighbour_id = grid[i-1][j]
+                    link_go = {"source": node_id, "target": neighbour_id}
+                    link_back = {"source": neighbour_id, "target": node_id}
+                    json_graph['links'].append(link_go)
+                    json_graph['links'].append(link_back)
+                except:
+                    pass
+                #vizinho da direita
+                try:
+                    neighbour_id = grid[i][j+1]
+                    link_go = {"source": node_id, "target": neighbour_id}
+                    link_back = {"source": neighbour_id, "target": node_id}
+                    json_graph['links'].append(link_go)
+                    json_graph['links'].append(link_back)
+                except:
+                    pass
+                #vizinho da esquerda
+                try:
+                    neighbour_id = grid[i][j-1]
+                    link_go = {"source": node_id, "target": neighbour_id}
+                    link_back = {"source": neighbour_id, "target": node_id}
+                    json_graph['links'].append(link_go)
+                    json_graph['links'].append(link_back)
+                except:
+                    pass
+
+        return json_graph
+
     def _additional_initialization(self):
 
         num_nodes = len(self.mote_id_list)
@@ -653,6 +719,14 @@ class ConnectivityMatrixGrid(ConnectivityMatrixBase):
                             )
                 except:
                     pass
+
+        json_grid = self.convertGridToJson(matrix_lines,num_lines,num_columns)
+        json_formatted_grid = json.dumps(json_grid, indent=2)
+
+        output_folder = self.build_output_path()
+        output_file =  os.path.join(output_folder,'network_grid_{0}.json'.format(num_nodes))
+        with open(output_file,'w') as f:
+            f.write(json_formatted_grid)
 
 class ConnectivityMatrixFullyMeshed(ConnectivityMatrixBase):
     """
