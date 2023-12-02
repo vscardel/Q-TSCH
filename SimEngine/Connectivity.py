@@ -603,37 +603,41 @@ class ConnectivityMatrixGrid(ConnectivityMatrixBase):
                 #vizinho de baixo
                 try:
                     neighbour_id = grid[i+1][j]
-                    link_go = {"source": node_id, "target": neighbour_id}
-                    link_back = {"source": neighbour_id, "target": node_id}
-                    json_graph['links'].append(link_go)
-                    json_graph['links'].append(link_back)
+                    if node_id != neighbour_id:
+                        link_go = {"source": node_id, "target": neighbour_id}
+                        link_back = {"source": neighbour_id, "target": node_id}
+                        json_graph['links'].append(link_go)
+                        json_graph['links'].append(link_back)
                 except:
                     pass
                 #vizinho de cima
                 try:
                     neighbour_id = grid[i-1][j]
-                    link_go = {"source": node_id, "target": neighbour_id}
-                    link_back = {"source": neighbour_id, "target": node_id}
-                    json_graph['links'].append(link_go)
-                    json_graph['links'].append(link_back)
+                    if node_id != neighbour_id:
+                        link_go = {"source": node_id, "target": neighbour_id}
+                        link_back = {"source": neighbour_id, "target": node_id}
+                        json_graph['links'].append(link_go)
+                        json_graph['links'].append(link_back)
                 except:
                     pass
                 #vizinho da direita
                 try:
                     neighbour_id = grid[i][j+1]
-                    link_go = {"source": node_id, "target": neighbour_id}
-                    link_back = {"source": neighbour_id, "target": node_id}
-                    json_graph['links'].append(link_go)
-                    json_graph['links'].append(link_back)
+                    if node_id != neighbour_id:
+                        link_go = {"source": node_id, "target": neighbour_id}
+                        link_back = {"source": neighbour_id, "target": node_id}
+                        json_graph['links'].append(link_go)
+                        json_graph['links'].append(link_back)
                 except:
                     pass
                 #vizinho da esquerda
                 try:
                     neighbour_id = grid[i][j-1]
-                    link_go = {"source": node_id, "target": neighbour_id}
-                    link_back = {"source": neighbour_id, "target": node_id}
-                    json_graph['links'].append(link_go)
-                    json_graph['links'].append(link_back)
+                    if node_id != neighbour_id:
+                        link_go = {"source": node_id, "target": neighbour_id}
+                        link_back = {"source": neighbour_id, "target": node_id}
+                        json_graph['links'].append(link_go)
+                        json_graph['links'].append(link_back)
                 except:
                     pass
 
