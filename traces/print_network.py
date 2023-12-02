@@ -12,7 +12,8 @@ def draw_grid_layout(G,destination_path):
     layout = nx.spring_layout(G)
     center_position = layout[0]
     pos = nx.get_node_attributes(G, 'pos')
-    nx.draw(G, pos=pos, with_labels=True, font_weight='bold')
+    color_map = ['green' if node == 0 else 'blue' for node in G.nodes()]
+    nx.draw(G, pos=pos, with_labels=True, font_weight='bold',node_color = color_map)
     plt.savefig(destination_path)
 
 if __name__ == "__main__":

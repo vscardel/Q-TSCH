@@ -607,37 +607,41 @@ class ConnectivityMatrixGrid(ConnectivityMatrixBase):
                 #vizinho de baixo
                 try:
                     neighbour_id = grid[i+1][j]
-                    link_go = {"source": node_id, "target": neighbour_id}
-                    link_back = {"source": neighbour_id, "target": node_id}
-                    json_graph['links'].append(link_go)
-                    json_graph['links'].append(link_back)
+                    if node_id != neighbour_id:
+                        link_go = {"source": node_id, "target": neighbour_id}
+                        link_back = {"source": neighbour_id, "target": node_id}
+                        json_graph['links'].append(link_go)
+                        json_graph['links'].append(link_back)
                 except:
                     pass
                 #vizinho de cima
                 try:
                     neighbour_id = grid[i-1][j]
-                    link_go = {"source": node_id, "target": neighbour_id}
-                    link_back = {"source": neighbour_id, "target": node_id}
-                    json_graph['links'].append(link_go)
-                    json_graph['links'].append(link_back)
+                    if node_id != neighbour_id:
+                        link_go = {"source": node_id, "target": neighbour_id}
+                        link_back = {"source": neighbour_id, "target": node_id}
+                        json_graph['links'].append(link_go)
+                        json_graph['links'].append(link_back)
                 except:
                     pass
                 #vizinho da direita
                 try:
                     neighbour_id = grid[i][j+1]
-                    link_go = {"source": node_id, "target": neighbour_id}
-                    link_back = {"source": neighbour_id, "target": node_id}
-                    json_graph['links'].append(link_go)
-                    json_graph['links'].append(link_back)
+                    if node_id != neighbour_id:
+                        link_go = {"source": node_id, "target": neighbour_id}
+                        link_back = {"source": neighbour_id, "target": node_id}
+                        json_graph['links'].append(link_go)
+                        json_graph['links'].append(link_back)
                 except:
                     pass
                 #vizinho da esquerda
                 try:
                     neighbour_id = grid[i][j-1]
-                    link_go = {"source": node_id, "target": neighbour_id}
-                    link_back = {"source": neighbour_id, "target": node_id}
-                    json_graph['links'].append(link_go)
-                    json_graph['links'].append(link_back)
+                    if node_id != neighbour_id:
+                        link_go = {"source": node_id, "target": neighbour_id}
+                        link_back = {"source": neighbour_id, "target": node_id}
+                        json_graph['links'].append(link_go)
+                        json_graph['links'].append(link_back)
                 except:
                     pass
 
@@ -669,8 +673,8 @@ class ConnectivityMatrixGrid(ConnectivityMatrixBase):
 
         #calcula a posicao central para inserir o no zero
         num_lines = len(matrix_lines)
-        central_x = int(math.floor(math.sqrt(num_columns)))
-        central_y = int(math.floor(math.sqrt(num_lines)))
+        central_x = int(math.floor(num_columns/2))
+        central_y = int(math.floor(num_lines/2))
 
         #insere o no zero(raiz) na posicao central
         aux = matrix_lines[central_y][central_x]
