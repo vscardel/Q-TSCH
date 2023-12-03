@@ -545,6 +545,15 @@ class ConnectivityMatrixBase(object):
     def get_rssi(self, src_id, dst_id, channel):
         return self._matrix[src_id][dst_id][channel][u'rssi']
 
+    def build_output_path(self,network_type):
+        full_path = __file__
+        output_path = '/'
+        for folder in full_path.split('/'):
+            output_path = os.path.join(output_path,folder)
+            if folder == "master":
+                break
+        return os.path.join(output_path,"traces",network_type)
+
     def dump(self):
         output = []
         output += [u'\n']
@@ -573,15 +582,6 @@ class ConnectivityMatrixBase(object):
         print(output)
 
 class ConnectivityMatrixGrid(ConnectivityMatrixBase):
-
-    def build_output_path(self):
-        full_path = __file__
-        output_path = '/'
-        for folder in full_path.split('/'):
-            output_path = os.path.join(output_path,folder)
-            if folder == "master":
-                break
-        return os.path.join(output_path,"traces","grid_networks")
 
     #recebe uma grid e converte no formato json
     #aceito pelo NetworkX
@@ -731,7 +731,7 @@ class ConnectivityMatrixGrid(ConnectivityMatrixBase):
         json_grid = self.convertGridToJson(matrix_lines,num_lines,num_columns)
         json_formatted_grid = json.dumps(json_grid, indent=2)
 
-        output_folder = self.build_output_path()
+        output_folder = self.build_output_path('grid_networks')
         output_file =  os.path.join(output_folder,'network_grid_{0}.json'.format(num_nodes))
         with open(output_file,'w') as f:
             f.write(json_formatted_grid)
@@ -751,18 +751,45 @@ class ConnectivityMatrixFullyMeshed(ConnectivityMatrixBase):
                     self.set_rssi(src_id, dst_id, channel, perfect_rssi)
                     
 class ConnectivityMatrixFixed(ConnectivityMatrixBase):
+    
+    def k7toJson(self,src_id,dst_id):
+        current_node = {
+            "id":src_id, 
+            "label": "Node {0}".format(src_id),
+        }
+        link_go = {"source": src_id, "target": dst_id}
+        link_back = {"source": dst_id, "target": src_id}
+        return current_node,link_go,link_back
+
     def _additional_initialization(self):
+        json_graph = {}
+        json_graph['nodes'] = []
+        json_graph['links'] = []
         with gzip.open(self.settings.conn_trace, u'r') as tracefile:
             self.csv_header = tracefile.readline().decode('utf-8')
-            for line in tracefile:
+            for line in tracefile: 
                 split_line = line.split(',')
                 src_id = int(split_line[0])
                 dst_id = int(split_line[1])
+                current_node,link_go,link_back = self.k7toJson(src_id,dst_id)
+                if current_node not in json_graph['nodes']:
+                    json_graph['nodes'].append(current_node)
+                if link_go not in json_graph['links']:
+                    json_graph['links'].append(link_go) 
+                if link_back not in json_graph['links']:
+                    json_graph['links'].append(link_back)  
                 rssi = float(split_line[3])
                 pdr = float(split_line[4][:-1])
                 for channel in d.TSCH_HOPPING_SEQUENCE[:self.num_channels]:
                     self.set_pdr_both_directions(src_id, dst_id, channel, pdr)
                     self.set_rssi_both_directions(src_id, dst_id, channel, rssi)
+
+        json_formatted_k7 = json.dumps(json_graph,indent=2)
+        output_folder = self.build_output_path('k7_networks')
+        num_nodes = len(self.mote_id_list)
+        output_file =  os.path.join(output_folder,'network_k7_{0}.json'.format(num_nodes))
+        with open(output_file,'w') as f:
+            f.write(json_formatted_k7)
 
 class ConnectivityMatrixLinear(ConnectivityMatrixBase):
     """
