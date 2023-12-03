@@ -24,7 +24,7 @@
           ],
           "conn_random_init_min_pdr":0.5,
           "app_pkPeriod":60,
-          "app":"AppIndustrialMonitoring",
+          "app":"AppPredictableBurst",
           "ALFA":0.7,
           "BETA":0.3,
           "phy_numChans":16,

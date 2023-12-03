@@ -9,7 +9,8 @@ from builtins import range
 from builtins import object
 from abc import abstractmethod
 import random
-
+import math
+import json
 # Mote sub-modules
 
 # Simulator-wide modules
@@ -233,6 +234,79 @@ class AppPeriodic(AppBase):
         # schedule the next transmission
         self._schedule_transmission()
 
+#nos predeterminados sao sorteados
+#para floodar a rede
+class AppPredictableBurst(AppBase):
+    
+    #os primeiros 25% dos nos em ordem, com excecao
+    #do no 0, serao nos burst.
+    def define_burst_nodes(self,num_nodes):
+        node_ids = [ids for ids in range(num_nodes)]
+        proportion = int(math.floor(num_nodes/4) + 1)
+        burst_nodes = node_ids[1:proportion]
+        return burst_nodes
+
+    def __init__(self, mote, settings=None):
+        super(AppPredictableBurst, self).__init__(mote)
+        num_nodes = 0
+        with open('../../bin/config.json','r') as f:
+            json_settings = json.load(f)
+            num_nodes = json_settings['settings']['combination']['exec_numMotes'][0]
+        self.burst_nodes = self.define_burst_nodes(num_nodes)
+        self.is_burst_node = False
+        if self.mote.id in self.burst_nodes:
+            self.is_burst_node = True
+
+    def startSendingData(self):
+        self._schedule_transmission()
+
+    def _schedule_transmission(self):
+        assert self.settings.app_pkPeriod >= 0
+        if self.settings.app_pkPeriod == 0:
+            return
+
+        if self.is_burst_node:
+            #delay reduzido pela metade
+            delay = self.settings.tsch_slotDuration + (self.settings.app_pkPeriod * 0.5)
+        else:
+            delay = self.settings.app_pkPeriod
+            self.engine.scheduleIn(
+                delay=delay,
+                cb=self._send_a_single_packet,
+                uniqueTag=(
+                    u'AppPredictableBurst',
+                    u'scheduled_by_{0}'.format(self.mote.id)
+                ),
+                intraSlotOrder=d.INTRASLOTORDER_ADMINTASKS,
+            )
+    
+    def _send_a_single_packet(self):
+        if self.mote.rpl.dodagId == None:
+            # it seems we left the dodag; stop the transmission
+            self.sending_first_packet = True
+            return
+
+        self._send_packet(
+            dstIp          = self.mote.rpl.dodagId,
+            packet_length  = self.settings.app_pkLength
+        )
+        # schedule the next transmission
+        self._schedule_transmission()
+    
+    def _send_burst_packages(self):
+        if self.mote.rpl.dodagId == None:
+            # it seems we left the dodag; stop the transmission
+            self.sending_first_packet = True
+            return
+
+        for i in range(5):
+            self._send_packet(
+                dstIp          = self.mote.rpl.dodagId,
+                packet_length  = self.settings.app_pkLength
+            )
+        # schedule the next transmission
+        self._schedule_transmission()
+
 class AppIndustrialMonitoring(AppBase):
 
     def __init__(self, mote, settings=None):
@@ -275,8 +349,8 @@ class AppIndustrialMonitoring(AppBase):
         if random.random() < 0.3:
             # 30% chance of entering defect mode (increased traffic)
             self.defect_mode = True
-        elif random.random() < 0.1:
-            # 10% chance of exiting defect mode (normal traffic)
+        elif random.random() < 0.5:
+            # 50% chance of exiting defect mode (normal traffic)
             self.defect_mode = False
         
         if self.defect_mode:
