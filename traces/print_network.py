@@ -16,6 +16,12 @@ def draw_grid_layout(G,destination_path):
     nx.draw(G, pos=pos, with_labels=True, font_weight='bold',node_color = color_map)
     plt.savefig(destination_path)
 
+def draw_generic_layout(G,destination_path):
+    pos = nx.kamada_kawai_layout(G)
+    color_map = ['green' if node == 0 else 'blue' for node in G.nodes()]
+    nx.draw(G, pos, with_labels=True,node_color = color_map)
+    plt.savefig(destination_path)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Printa uma rede usando NetworkX')
     build_arguments(parser)
@@ -30,5 +36,7 @@ if __name__ == "__main__":
 
             if grid_layout == 'y':
                 draw_grid_layout(G,destination_path)
+            else:
+                draw_generic_layout(G,destination_path)
     except OSError as error:
         print(error)
