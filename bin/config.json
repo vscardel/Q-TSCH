@@ -27,6 +27,7 @@
           "app":"AppPredictableBurst",
           "ALFA":0.7,
           "BETA":0.3,
+          "NUM_NODES":50,
           "phy_numChans":16,
           "exec_numSlotframesPerRun":3750,
           "fragmentation":"FragmentForwarding",
