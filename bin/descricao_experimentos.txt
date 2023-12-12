@@ -1,0 +1,62 @@
+Documento para me orientar e seguir as estapas dos experimentos de maneira correta.
+
+    Experimento:
+
+        O primeiro passo é rodar os experimentos para a MSF e para o Q-Learning, através do programa bin/runSimulationsTests.py.
+        Para tal, executar o comando:
+
+        python3 runSimulationTests.py --topology Fixed --application AppPredictableBurst --num_nodes 10 --num_runs 3
+
+        Descrição dos parâmetros:
+
+        --topology: determina a topologia usada. Pode ser Fixed ou Grid. 
+        
+            Fixed: É uma rede onde cada nó pode ter um número k de conexões com m nós distintos na rede. A qualidade da conexão
+            (i,j) do nó i para o nó j pode ter uma qualidade variável, podendo ser boa ou ruim.
+
+            Grid: Topologia em grid com todos toda conexão (i,j) com qualidade máxima.
+
+        --application: Determina a aplicação.
+
+            AppPredictableBurst: Essa aplicação consiste em 25% dos nós com características de nós burst e o restante com comporta-
+            mento de tráfego periódico.
+
+            AppIndustrialMonitoring: Cada nó tem uma probabilidade de se tornar um nó burst. Se um ńo não é um nó burst, ele é 
+            um nó periódico.
+
+            AppPeriodic
+
+        --num_nodes: Número de nós na simulação
+
+        --num_runs: Número de vezes que o experimento é executado.
+
+    Resultados:
+        O resultado de um experimento (uma rodada de runSimulationTests.py) é uma pasta com o timestamp do momento em que o 
+        experimento foi executado, eg.: 1702345772. O formato dos diretórios criados é como se segue:
+
+        1702345772
+            config.json
+            {app}_{grid}_{num_nodes}_1
+            {app}_{grid}_{num_nodes}_2
+            {app}_{grid}_{num_nodes}_3
+            ...
+            {app}_{grid}_{num_nodes}_num_rum
+                exec_numMotes_{num_nodes}.dat
+                exec_numMotes_{num_nodes}.dat.kpi
+
+    Metodologia do experimento:
+
+        1) Rode um experimento para a MSF, com um determinado conjunto de parâmetros. Mova o resultado desses experimentos 
+        para o diretório de sua preferência.
+        
+        2) Rode o mesmo experimento para o Q-Learning, movendo os resultados para a mesma pasta dos resultados da MSF.
+        
+        
+
+
+            
+
+
+
+
+
