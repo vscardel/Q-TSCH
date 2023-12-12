@@ -150,7 +150,7 @@ if __name__ == '__main__':
     config_file = load_config()
     parameterized_config_file = parameterize_config(config_file,parameters)
 
-    output_folder_name = build_folder_name() + 'msf'
+    output_folder_name = build_folder_name() + 'q_learning'
 
     for num_rum in range(1,parameters['num_runs']+1):
         
@@ -175,7 +175,5 @@ if __name__ == '__main__':
         )
 
         erase_simulator_output_folder(simulator_folder_output_path)
-
-        
         if num_rum == 1:
             draw_network(output_subfolder_path,parameters)
