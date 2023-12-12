@@ -248,10 +248,7 @@ class AppPredictableBurst(AppBase):
 
     def __init__(self, mote, settings=None):
         super(AppPredictableBurst, self).__init__(mote)
-        num_nodes = 0
-        with open('../../bin/config.json','r') as f:
-            json_settings = json.load(f)
-            num_nodes = json_settings['settings']['combination']['exec_numMotes'][0]
+        num_nodes = self.settings.NUM_NODES
         self.burst_nodes = self.define_burst_nodes(num_nodes)
         self.is_burst_node = False
         if self.mote.id in self.burst_nodes:

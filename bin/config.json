@@ -25,6 +25,9 @@
          "conn_random_init_min_pdr":0.5,
          "app_pkPeriod":60,
          "app":"AppPredictableBurst",
+         "ALFA":0.7,
+         "BETA":0.3,
+         "NUM_NODES":50,
          "phy_numChans":16,
          "exec_numSlotframesPerRun":3750,
          "fragmentation":"FragmentForwarding",
@@ -57,8 +60,7 @@
    "log_directory_name":"startTime",
    "version":0,
    "post":[
-      "python2 compute_kpis.py",
-      "python2 plot.py"
+      "python2 compute_kpis.py"
    ],
    "execution":{
       "numRuns":1,
