@@ -150,7 +150,7 @@ if __name__ == '__main__':
     config_file = load_config()
     parameterized_config_file = parameterize_config(config_file,parameters)
 
-    output_folder_name = build_folder_name()
+    output_folder_name = build_folder_name() + 'msf'
 
     for num_rum in range(1,parameters['num_runs']+1):
         
