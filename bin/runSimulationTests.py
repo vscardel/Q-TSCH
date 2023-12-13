@@ -32,6 +32,7 @@ def parameterize_config(config_file,parameters):
     num_nodes = parameters['num_nodes']
     #escolhe a aplicacao
     config_file['settings']['regular']['app'] = parameters['application']
+    config_file['execution']['numRuns'] = parameters['num_runs']
     #escolhe a topologia
     if parameters['topology'] == "Grid":
         config_file['settings']['regular']['conn_class'] = 'Grid'
@@ -55,8 +56,8 @@ def build_subfolder_name(parameters,num_rum):
     num_nodes = parameters['num_nodes']
     return f'{application}_{topology}_{num_nodes}_{num_rum}'
 
-def create_output_subfolder(output_folder,output_subfolder):
-    folder_path = os.path.join("./",output_folder,output_subfolder)
+def create_output_folder(output_folder):
+    folder_path = os.path.join("./",output_folder,'Results')
     os.makedirs(folder_path)
     return folder_path
 
@@ -81,13 +82,14 @@ def copy_files_from(src_path,dst_path):
         if '.dat' in file_name:
             shutil.copyfile(
                 os.path.join(src_path,file_name),
-                os.path.join(dst_path,file_name)
+                os.path.join(dst_path,"Results",file_name)
             )
 
 def erase_simulator_output_folder(folder_path):
     shutil.rmtree(folder_path)
 
 def draw_network(dst_path,parameters):
+
 
     num_nodes = parameters['num_nodes']
     topology = parameters['topology']
@@ -119,7 +121,6 @@ def draw_network(dst_path,parameters):
             dst_path,
             "--grid_layout",
             topology_argument
-
         ]
     )
         
@@ -152,28 +153,24 @@ if __name__ == '__main__':
 
     output_folder_name = build_folder_name() + 'q_learning'
 
-    for num_rum in range(1,parameters['num_runs']+1):
-        
-        output_subfolder_name = build_subfolder_name(parameters,num_rum)
+    create_output_folder(output_folder_name)
 
-        output_subfolder_path = create_output_subfolder(
-            output_folder_name,
-            output_subfolder_name
-        )
+    save_config(output_folder_name,parameterized_config_file)
 
-        save_config(output_folder_name,parameterized_config_file)
+    subprocess.run(["python2", "runSim.py","--config",f'{output_folder_name}/config.json'])
 
-        subprocess.run(["python2", "runSim.py","--config",f'{output_folder_name}/config.json'])
+    # gambiarra necessaria pois nao achei como fazer o simulador salvar o resultado na pasta q quero
 
-        # gambiarra necessaria pois nao achei como fazer o simulador salvar o resultado na pasta q quero
+    simulator_folder_output_path = find_simulator_output_folder()
 
-        simulator_folder_output_path = find_simulator_output_folder()
+    copy_files_from(
+        simulator_folder_output_path,
+        output_folder_name
+    )
 
-        copy_files_from(
-            simulator_folder_output_path,
-            output_subfolder_path
-        )
+    erase_simulator_output_folder(simulator_folder_output_path)
 
-        erase_simulator_output_folder(simulator_folder_output_path)
-        if num_rum == 1:
-            draw_network(output_subfolder_path,parameters)
+    draw_network(
+        os.path.join("../bin",output_folder_name,"topology.png"),
+        parameters
+    )

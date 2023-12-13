@@ -45,12 +45,7 @@ Documento para me orientar e seguir as estapas dos experimentos de maneira corre
                 exec_numMotes_{num_nodes}.dat.kpi
 
     Metodologia do experimento:
-
-        1) Rode um experimento para a MSF, com um determinado conjunto de parâmetros. Mova o resultado desses experimentos 
-        para o diretório de sua preferência.
-        
-        2) Rode o mesmo experimento para o Q-Learning, movendo os resultados para a mesma pasta dos resultados da MSF.
-        
+    
         
 
 
