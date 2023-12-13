@@ -243,7 +243,7 @@ class AppPredictableBurst(AppBase):
     def define_burst_nodes(self,num_nodes):
         node_ids = [ids for ids in range(num_nodes)]
         proportion = int(math.floor(num_nodes/4) + 1)
-        burst_nodes = node_ids[1:proportion]
+        burst_nodes = random.sample(node_ids,proportion)
         return burst_nodes
 
     def __init__(self, mote, settings=None):
