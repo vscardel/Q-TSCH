@@ -6,6 +6,10 @@ import subprocess
 import re
 import shutil
 
+
+def list_of_ints(arg):
+    return list(map(int, arg.split(',')))
+
 def define_parameters(parser):
     parser.add_argument('-nr', '--num_runs') 
     parser.add_argument(
@@ -13,14 +17,15 @@ def define_parameters(parser):
         choices=['AppPredictableBurst','AppIndustrialMonitoring','AppPeriodic']
     )
     parser.add_argument('-topo', '--topology',choices=['Grid','Fixed'])
-    parser.add_argument('-nn', '--num_nodes',choices=['10','50','100','150','200'])    
+    parser.add_argument('-cb', '--combinations',type = list_of_ints)    
     
 def build_parameters(args):
     parameters = {}
     parameters['num_runs'] = int(args.num_runs)
     parameters['application'] = args.application
     parameters['topology'] = args.topology
-    parameters['num_nodes'] = int(args.num_nodes)
+    parameters['combinations'] = args.combinations
+    parameters['current_num_node'] = 0
     return parameters
 
 def load_config():
@@ -29,7 +34,7 @@ def load_config():
     return config_file
 
 def parameterize_config(config_file,parameters):
-    num_nodes = parameters['num_nodes']
+    current_num_node = parameters['current_num_node']
     #escolhe a aplicacao
     config_file['settings']['regular']['app'] = parameters['application']
     config_file['execution']['numRuns'] = parameters['num_runs']
@@ -39,11 +44,10 @@ def parameterize_config(config_file,parameters):
     #neste caso, precisamos tambem definir o caminho para o trace file
     elif parameters['topology'] == "Fixed":
         config_file['settings']['regular']['conn_class'] = 'Fixed'
-        conn_trace_path = f"../traces/k7_networks_random_stats_v1/fixedNetwork{num_nodes}.k7.gz"
+        conn_trace_path = f"../traces/k7_networks_random_stats_v1/fixedNetwork{current_num_node}.k7.gz"
         config_file['settings']['regular']['conn_trace'] = conn_trace_path
-    #escolhe o numero de nos
-    config_file['settings']['combination']['exec_numMotes'] = [num_nodes]
-    config_file['settings']['regular']['NUM_NODES'] = num_nodes
+
+    config_file['settings']['combination']['exec_numMotes'] = [current_num_node]
     return config_file
 
 def build_folder_name():
@@ -59,6 +63,8 @@ def build_subfolder_name(parameters,num_rum):
 def create_output_folder(output_folder):
     folder_path = os.path.join("./",output_folder,'Results')
     os.makedirs(folder_path)
+    topologies_folder_path = os.path.join("./",output_folder,"Topologies")
+    os.makedirs(topologies_folder_path)
     return folder_path
 
 def save_config(output_folder,parameterized_config_file):
@@ -88,10 +94,8 @@ def copy_files_from(src_path,dst_path):
 def erase_simulator_output_folder(folder_path):
     shutil.rmtree(folder_path)
 
-def draw_network(dst_path,parameters):
+def draw_network(dst_path,parameters,num_node):
 
-
-    num_nodes = parameters['num_nodes']
     topology = parameters['topology']
 
     network_path = '../traces'
@@ -101,14 +105,14 @@ def draw_network(dst_path,parameters):
         network_path = os.path.join(
             network_path,
             'grid_networks',
-            f'network_grid_{num_nodes}.json'
+            f'network_grid_{num_node}.json'
         )
         topology_argument = 'y'
     elif topology == 'Fixed':
         network_path = os.path.join(
             network_path,
             'k7_networks',
-            f'network_k7_{num_nodes}.json'
+            f'network_k7_{num_node}.json'
         )
 
     subprocess.run(
@@ -149,28 +153,33 @@ if __name__ == '__main__':
     parameters = build_parameters(args)
 
     config_file = load_config()
-    parameterized_config_file = parameterize_config(config_file,parameters)
 
     output_folder_name = build_folder_name() + 'msf'
 
     create_output_folder(output_folder_name)
 
-    save_config(output_folder_name,parameterized_config_file)
+    for combination in parameters['combinations']:
 
-    subprocess.run(["python2", "runSim.py","--config",f'{output_folder_name}/config.json'])
+        parameters['current_num_node'] = combination
+        parameterized_config_file = parameterize_config(config_file,parameters)
+        save_config(output_folder_name,parameterized_config_file)
 
-    # gambiarra necessaria pois nao achei como fazer o simulador salvar o resultado na pasta q quero
+        subprocess.run(["python2", "runSim.py","--config",f'{output_folder_name}/config.json'])
 
-    simulator_folder_output_path = find_simulator_output_folder()
+        # gambiarra necessaria pois nao achei como fazer o simulador salvar o resultado na pasta q quero
 
-    copy_files_from(
-        simulator_folder_output_path,
-        output_folder_name
-    )
+        simulator_folder_output_path = find_simulator_output_folder()
 
-    erase_simulator_output_folder(simulator_folder_output_path)
+        copy_files_from(
+            simulator_folder_output_path,
+            output_folder_name
+        )
 
-    draw_network(
-        os.path.join("../bin",output_folder_name,"topology.png"),
-        parameters
-    )
+        erase_simulator_output_folder(simulator_folder_output_path)
+
+    for combination in parameters['combinations']:
+        draw_network(
+            os.path.join("../bin",output_folder_name,"Topologies",f"topology{combination}.png"),
+            parameters,
+            combination
+        )

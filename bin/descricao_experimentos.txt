@@ -26,7 +26,8 @@ Documento para me orientar e seguir as estapas dos experimentos de maneira corre
 
             AppPeriodic
 
-        --num_nodes: Número de nós na simulação
+        --max_num_nodes: número maximo de nos que serão executados na lista de [10,50,100,150,200].
+        eg.: se --max_num_nodes = 100 => serão executados os nós [10,50,100]
 
         --num_runs: Número de vezes que o experimento é executado.
 

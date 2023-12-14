@@ -36,10 +36,12 @@ class Mote(object):
     IPV6_ADDR_TYPE_LINK_LOCAL = u'link-local'
     IPV6_ADDR_TYPE_GLOBAL     = u'global'
 
-    def __init__(self, id, eui64=None):
+    def __init__(self, id, num_motes, eui64=None):
 
         # store params
         self.id                        = id
+        
+        self.num_motes = num_motes
 
         # admin
         self.dataLock                  = threading.RLock()
@@ -63,6 +65,7 @@ class Mote(object):
         self.sixp                      = sixp.SixP(self)
         self.tsch                      = tsch.Tsch(self)
         self.radio                     = radio.Radio(self)
+        self.motes = []
 
     # ======================= stack ===========================================
 
