@@ -45,7 +45,7 @@ class AppBase(object):
 
         # store params
         self.mote       = mote
-
+        
         # singletons (quicker access, instead of recreating every time)
         self.engine     = SimEngine.SimEngine.SimEngine()
         self.settings   = SimEngine.SimSettings.SimSettings()
@@ -248,8 +248,7 @@ class AppPredictableBurst(AppBase):
 
     def __init__(self, mote, settings=None):
         super(AppPredictableBurst, self).__init__(mote)
-        num_nodes = self.settings.NUM_NODES
-        self.burst_nodes = self.define_burst_nodes(num_nodes)
+        self.burst_nodes = self.define_burst_nodes(self.mote.num_motes)
         self.is_burst_node = False
         if self.mote.id in self.burst_nodes:
             self.is_burst_node = True
