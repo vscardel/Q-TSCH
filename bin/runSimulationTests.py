@@ -154,7 +154,7 @@ if __name__ == '__main__':
 
     config_file = load_config()
 
-    output_folder_name = build_folder_name() + 'msf'
+    output_folder_name = build_folder_name() + 'qlearning'
 
     create_output_folder(output_folder_name)
 
