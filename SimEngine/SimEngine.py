@@ -202,8 +202,8 @@ class DiscreteEventEngine(threading.Thread):
 
     def join(self):
         super(DiscreteEventEngine, self).join()
-        # if self.exc:
-        #     raise self.exc
+        if self.exc:
+            raise self.exc
 
     #======================== public ==========================================
 
@@ -399,13 +399,16 @@ class SimEngine(DiscreteEventEngine):
         else:
             eui64_table = [None] * self.settings.exec_numMotes
 
-        self.motes = [
-            Mote.Mote.Mote(id, eui64)
+        list_ids = [(id,eui64)
             for id, eui64 in zip(
-                    list(range(self.settings.exec_numMotes)),
-                    eui64_table
+                list(range(self.settings.exec_numMotes)),
+                eui64_table
             )
         ]
+        self.motes = []
+        for id,eui64 in list_ids:
+            mote = Mote.Mote.Mote(id ,len(list_ids), eui64)
+            self.motes.append(mote)
 
         eui64_list = set([mote.get_mac_addr() for mote in self.motes])
         if len(eui64_list) != len(self.motes):
