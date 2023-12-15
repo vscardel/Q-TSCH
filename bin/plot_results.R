@@ -8,8 +8,8 @@ setwd("/home/vscardel/q_tsch_simulator/master/bin")
 resultados <- data.frame()
 
 # Solicitar a pasta do experimento
-file_name <- readline("Digite a pasta do experimento que deseja plotar: ")
-file_path <- sprintf("%s/Results/", file_name)
+folder_name <- readline("Digite a pasta do experimento que deseja plotar: ")
+file_path <- sprintf("%s/Results/", folder_name)
 ordem_extracao <- 0
 # Iterar sobre os arquivos
 for (file_name in list.files(file_path)) {
@@ -57,6 +57,5 @@ latencies_graph <- ggplot(resultados, aes(x = as.factor(Nos), y = Media)) +
   labs(title = "Média das Médias por Número de Nós", x = "Número de Nós", y = "Média") +
   theme_minimal()
 
-path_to_save <- sprintf("%s/Results/", file_name)
-path_to_save <- paste0(path_to_save,"Graficos")
+path_to_save <- sprintf("%s/Graphs/", folder_name)
 ggsave(file.path(path_to_save, "latencias.png"), plot = latencies_graph, width = 8, height = 6, units = "in")
