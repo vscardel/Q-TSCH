@@ -117,7 +117,7 @@ def draw_network(dst_path,parameters,num_node):
 
     subprocess.run(
         [
-            "python3", 
+            "python3.9", 
             "../traces/print_network.py",
             "--file_path",
             network_path,
@@ -154,7 +154,7 @@ if __name__ == '__main__':
 
     config_file = load_config()
 
-    output_folder_name = build_folder_name() + 'qlearning'
+    output_folder_name = build_folder_name() + 'msf'
 
     create_output_folder(output_folder_name)
 
