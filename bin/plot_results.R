@@ -57,6 +57,5 @@ latencies_graph <- ggplot(resultados, aes(x = as.factor(Nos), y = Media)) +
   labs(title = "Média das Médias por Número de Nós", x = "Número de Nós", y = "Média") +
   theme_minimal()
 
-path_to_save <- sprintf("%s/Results/", folder_name)
-path_to_save <- paste0(path_to_save,"Graficos")
+path_to_save <- sprintf("%s/Graphs/", folder_name)
 ggsave(file.path(path_to_save, "latencias.png"), plot = latencies_graph, width = 8, height = 6, units = "in")
