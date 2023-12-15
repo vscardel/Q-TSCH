@@ -65,6 +65,8 @@ def create_output_folder(output_folder):
     os.makedirs(folder_path)
     topologies_folder_path = os.path.join("./",output_folder,"Topologies")
     os.makedirs(topologies_folder_path)
+    graphs_folder_path = os.path.join("./",output_folder,"Graphs")
+    os.makedirs(graphs_folder_path)
     return folder_path
 
 def save_config(output_folder,parameterized_config_file):
