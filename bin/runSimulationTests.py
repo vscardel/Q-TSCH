@@ -84,14 +84,24 @@ def find_simulator_output_folder():
             return folder_path
             break
 
-def copy_files_from(src_path,dst_path):
-    file_names = os.listdir(src_path)
-    for file_name in file_names:
-        if '.dat' in file_name:
-            shutil.copyfile(
-                os.path.join(src_path,file_name),
-                os.path.join(dst_path,"Results",file_name)
-            )
+def copy_files_from(src_path, dst_path):
+    max_attempts = 5 
+    wait_time = 2   
+
+    for attempt in range(max_attempts):
+        file_names = os.listdir(src_path)
+        if any('.dat' in file_name for file_name in file_names):
+            for file_name in file_names:
+                if '.dat' in file_name:
+                    shutil.move(
+                        os.path.join(src_path, file_name),
+                        os.path.join(dst_path, "Results", file_name)
+                    )
+            return  
+
+        time.sleep(wait_time)
+
+    print("Aviso: Não foi possível copiar os arquivos após várias tentativas.")
 
 def erase_simulator_output_folder(folder_path):
     shutil.rmtree(folder_path)
@@ -156,7 +166,7 @@ if __name__ == '__main__':
 
     config_file = load_config()
 
-    output_folder_name = build_folder_name() + 'msf'
+    output_folder_name = build_folder_name() + 'qlearning'
 
     create_output_folder(output_folder_name)
 
@@ -172,6 +182,7 @@ if __name__ == '__main__':
 
         simulator_folder_output_path = find_simulator_output_folder()
 
+        print('Copiando arquivos para a pasta Results')
         copy_files_from(
             simulator_folder_output_path,
             output_folder_name

@@ -264,6 +264,15 @@ class AppPredictableBurst(AppBase):
         if self.is_burst_node:
             #delay reduzido pela metade
             delay = self.settings.tsch_slotDuration + (self.settings.app_pkPeriod * 0.5)
+            self.engine.scheduleIn(
+                delay=delay,
+                cb=self._send_burst_packages,
+                uniqueTag=(
+                    u'AppPredictableBurst',
+                    u'scheduled_by_{0}'.format(self.mote.id)
+                ),
+                intraSlotOrder=d.INTRASLOTORDER_ADMINTASKS,
+            )
         else:
             delay = self.settings.app_pkPeriod
             self.engine.scheduleIn(
@@ -282,6 +291,8 @@ class AppPredictableBurst(AppBase):
             self.sending_first_packet = True
             return
 
+        print(self.mote.id)
+        print('enviou pacote unico')
         self._send_packet(
             dstIp          = self.mote.rpl.dodagId,
             packet_length  = self.settings.app_pkLength
@@ -294,6 +305,10 @@ class AppPredictableBurst(AppBase):
             # it seems we left the dodag; stop the transmission
             self.sending_first_packet = True
             return
+
+
+        print(self.mote.id)
+        print('enviou pacote burst')
 
         for i in range(5):
             self._send_packet(
