@@ -2,6 +2,7 @@ library(rjson)
 library(dplyr)
 library(ggplot2)
 library(scales)
+library(reshape)
 
 return_method_mean_results <- function(file_path) {
 
@@ -100,9 +101,9 @@ plot_graphs <- function(results_msf,results_q_learning) {
 		current_data_frame_q_learning = results_q_learning[[index]]
 
 		combined_data <- data.frame(
-			Nos = current_data_frame_msf$Nos, 
-			Media1 = current_data_frame_msf$Media, 
-			Media2 = current_data_frame_q_learning$Media
+			Nos = rep(current_data_frame_msf$Nos, 2),  # Repetir para ter dois conjuntos de barras
+			Media = c(current_data_frame_msf$Media, current_data_frame_q_learning$Media),
+			Tipo = rep(c("MSF", "Q-Learning"), each = length(current_data_frame_msf$Nos))
 		)
 
 		current_y_label <- switch(
@@ -113,13 +114,13 @@ plot_graphs <- function(results_msf,results_q_learning) {
 			"Taxa Média de Entrega dos Pacotes"
 		)
 
-		plot_current_graph <- ggplot(combined_data, aes(x = as.factor(Nos))) +
-		geom_bar(aes(y = Media1), stat = "identity", position = "dodge", fill = "blue", alpha = 0.8, width = 0.3) +
-		geom_bar(aes(y = Media2), stat = "identity", position = "dodge", fill = "green", alpha = 0.8, width = 0.3) +
+		plot_current_graph <- ggplot(combined_data, aes(x = as.factor(Nos), y = Media, fill = Tipo)) +
+		geom_bar(aes(y = Media, fill = Tipo), stat = "identity", position = "dodge", color = "white", width = 0.7, alpha = 0.4) +
 		labs(title = current_y_label, x = "Número de Nós", y = "") +
 		theme_minimal() +
 		scale_y_continuous(breaks = pretty_breaks(n = 10)) +
-		theme(plot.background = element_rect(fill = "white"))
+		theme(plot.background = element_rect(fill = "white")) +
+		scale_fill_manual(values = c(rgb(51/255, 187/255, 1), rgb(0, 204/255, 153/255)))
 
 		ggsave(file.path(path_to_save, graph_file_names[graph_count]), plot = plot_current_graph, width = 8, height = 6, units = "in", dpi = 300)
 		graph_count <- graph_count + 1
@@ -143,14 +144,5 @@ all_results_q_learning = return_method_mean_results(file_path_q_learning)
 
 current_data_frame_msf = all_results_msf[[1]]
 current_data_frame_q_learning = all_results_q_learning[[1]]
-
-print(current_data_frame_msf)
-print(current_data_frame_q_learning)
-
-combined_data <- data.frame(
-	Nos = current_data_frame_msf$Nos, 
-	Media1 = current_data_frame_msf$Media, 
-	Media2 = current_data_frame_q_learning$Media
-)
 
 plot_graphs(all_results_msf,all_results_q_learning)
