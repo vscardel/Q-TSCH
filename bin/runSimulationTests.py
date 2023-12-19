@@ -141,7 +141,6 @@ def draw_network(dst_path,parameters,num_node):
         ]
     )
 
-
 def compute_mean_node_data(node,experiments_mean_results):
     node_data_list = experiments_mean_results[node]
     mean_dictionary = {}
