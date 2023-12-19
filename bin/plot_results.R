@@ -133,34 +133,39 @@ plot_bar_graph_averages(
 	'taxas_entrega.jpg'
 )
 
-plot_boxplots(
-	dfs_msf[[1]], 
-	dfs_q_learning[[1]], 
-	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0', 
-	paste('lifetime_AA_years', "_boxplot_comparison.jpg", sep = ""),
-	'lifetime_AA_years'
-)
+i <- 1
+for (num_nodes in c('10', '50', '100', '150', '200')) {
+	plot_boxplots(
+		dfs_msf[[i]], 
+		dfs_q_learning[[i]], 
+		'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0', 
+		paste('lifetime_AA_years',num_nodes,"_boxplot_comparison.jpg", sep = ""),
+		'lifetime_AA_years'
+	)
 
-plot_boxplots(
-	dfs_msf[[1]], 
-	dfs_q_learning[[1]], 
-	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0', 
-	paste('latency_avg_s', "_boxplot_comparison.jpg", sep = ""),
-	'latency_avg_s'
-)
+	plot_boxplots(
+		dfs_msf[[i]], 
+		dfs_q_learning[[i]], 
+		'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0', 
+		paste('latency_avg_s',num_nodes,"_boxplot_comparison.jpg", sep = ""),
+		'latency_avg_s'
+	)
 
-plot_boxplots(
-	dfs_msf[[1]], 
-	dfs_q_learning[[1]], 
-	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0', 
-	paste('join_time_s', "_boxplot_comparison.jpg", sep = ""),
-	'join_time_s'
-)
+	plot_boxplots(
+		dfs_msf[[i]], 
+		dfs_q_learning[[i]], 
+		'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0', 
+		paste('join_time_s',num_nodes, "_boxplot_comparison.jpg", sep = ""),
+		'join_time_s'
+	)
 
-plot_boxplots(
-	dfs_msf[[1]], 
-	dfs_q_learning[[1]], 
-	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0', 
-	paste('upstream_reliability', "_boxplot_comparison.jpg", sep = ""),
-	'upstream_reliability'
-)
+	plot_boxplots(
+		dfs_msf[[i]], 
+		dfs_q_learning[[i]], 
+		'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0', 
+		paste('upstream_reliability',num_nodes, "_boxplot_comparison.jpg", sep = ""),
+		'upstream_reliability'
+	)
+
+	i <- i + 1
+}
