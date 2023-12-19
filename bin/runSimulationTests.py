@@ -5,7 +5,7 @@ import time
 import subprocess
 import re
 import shutil
-
+import csv
 
 def list_of_ints(arg):
     return list(map(int, arg.split(',')))
@@ -85,6 +85,7 @@ def find_simulator_output_folder():
             break
 
 def copy_files_from(src_path,dst_path):
+    print('Copiando arquivos para a pasta de resultados')
     file_names = os.listdir(src_path)
     for file_name in file_names:
         if '.dat' in file_name:
@@ -98,6 +99,7 @@ def erase_simulator_output_folder(folder_path):
 
 def draw_network(dst_path,parameters,num_node):
 
+    print('printando a rede')
     topology = parameters['topology']
 
     network_path = '../traces'
@@ -129,7 +131,62 @@ def draw_network(dst_path,parameters,num_node):
             topology_argument
         ]
     )
-        
+
+
+def compute_mean_node_data(node,experiments_mean_results):
+    node_data_list = experiments_mean_results[node]
+    mean_dictionary = {}
+    for node_data in node_data_list:
+        for key,value in node_data.items():
+            if value in (None,'N/A'):
+                value = 0
+            if key not in mean_dictionary:
+                mean_dictionary[key] = [value]
+            else:
+                mean_dictionary[key].append(value)
+    for key in mean_dictionary:
+        list_data = mean_dictionary[key]
+        mean_data = sum(list_data)/len(list_data)
+        mean_dictionary[key] = mean_data
+    return mean_dictionary
+
+def generate_mean_dictionaty_list(kpi_file_path):
+    final_mean_dict = {}
+    experiments_run_nodes_list = {}
+    with open(kpi_file_path,'r') as f:
+        json_file = json.load(f)
+        for experiment in json_file:
+            for node in json_file[experiment]:
+                if node == "global-stats":
+                    continue
+                current_node_data = json_file[experiment][node]
+                current_node_data.pop("latencies",None)
+                if node not in experiments_run_nodes_list:
+                    experiments_run_nodes_list[node] = [current_node_data]
+                else:
+                    experiments_run_nodes_list[node].append(current_node_data)
+    for node in experiments_run_nodes_list:
+        final_mean_dict[int(node)] = compute_mean_node_data(node,experiments_run_nodes_list)
+    return final_mean_dict
+
+def save_kpi_in_csv_format(output_folder_name):
+    print('Salvado resultados CSV')
+    path_to_files = os.path.join(output_folder_name,"Results")
+    file_names = os.listdir(path_to_files)
+    for file_name in file_names:
+        if 'kpi' in file_name:
+            kpi_file_path = os.path.join(output_folder_name,"Results",file_name)
+            #tira o .dat e o .csv
+            file_name_no_extension = file_name[:-8]
+            csv_path = os.path.join(output_folder_name,"Results",f'{file_name_no_extension}.csv')
+            mean_data = generate_mean_dictionaty_list(kpi_file_path)
+            with open(csv_path, 'w', newline='') as arquivo_csv:
+                csv_writer = csv.DictWriter(arquivo_csv, fieldnames=mean_data[1].keys())
+                csv_writer.writeheader()
+                # Escreve os dados
+                for no, dados in mean_data.items():
+                    csv_writer.writerow(dados)
+
 if __name__ == '__main__':
 
     #Format of parameters
@@ -176,6 +233,9 @@ if __name__ == '__main__':
             simulator_folder_output_path,
             output_folder_name
         )
+
+        #csv com as medias dos experimentos
+        save_kpi_in_csv_format(output_folder_name)
 
         erase_simulator_output_folder(simulator_folder_output_path)
 

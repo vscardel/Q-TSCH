@@ -4,86 +4,76 @@ library(ggplot2)
 library(scales)
 library(reshape)
 
-return_method_mean_results <- function(file_path) {
+extract_nodes_from_filename <- function(filename) {
+  # Use expressão regular para extrair o número de nós
+  match <- regexec("exec_numMotes_([0-9]+)\\.dat\\.kpi", filename)
+  
+  # Verifique se houve uma correspondência bem-sucedida
+  if (match[[1]][1] != -1) {
+    # Extrai o número de nós da correspondência
+    num_nodes <- as.integer(sub("exec_numMotes_([0-9]+)\\.dat\\.kpi", "\\1", filename))
+    return(num_nodes)
+  } else {
+    # Retorna NA se não houver correspondência
+    return(NA)
+  }
+}
 
-	NUM_DAYS_YEAR = 365
-	NUM_MS_IN_TIMESLOT = 10
+compute_final_dataframe <- function(file_path) {
+  # Inicializa um dataframe vazio
+  final_df <- data.frame()
 
-	# Variáveis para armazenar os resultados
-	resultados_media <- data.frame()
-	resultados_join_time <- data.frame()
-	resultados_lifetime <- data.frame()
-	resultados_delivery_ratio <- data.frame()
-
-	ordem_extracao <- 0
-
-	# Iterar sobre os arquivos
-	for (file_name in list.files(file_path)) {
+  # Iterar sobre os arquivos
+  for (file_name in list.files(file_path)) {
 	
-		current_file_path <- paste0(file_path, file_name)
-	
-		# Verificar se o arquivo é .kpi
-		if (grepl(".kpi", current_file_path)) {
-			
-			ordem_extracao <- ordem_extracao + 1
-			
-			# Ler os dados do JSON
-			json_data <- fromJSON(file = current_file_path)
-			
-			# Inicializar vetor para armazenar as médias
-			mean_latencies_list <- c()
-			mean_join_time_list <- c()
-			mean_lifetime_list <- c()
-			mean_upstream_delivery_list <- c()
-			
-			# Iterar sobre os experimentos
-			for (experiment in names(json_data)) {
-			
-				if ("global-stats" %in% names(json_data[[experiment]])) {
-					
-					# Acessar os dados relevantes
-					global_stats_data <- json_data[[experiment]]$`global-stats`
+    current_file_path <- file.path(file_path, file_name)
 
-					latency_info <- global_stats_data$`e2e-upstream-latency`
-					mean_latencies <- latency_info[[1]]$mean 
+    # Verificar se o arquivo é .kpi
+    if (grepl(".kpi", current_file_path)) {
+      # Ler os dados do JSON
+      json_data <- fromJSON(file = current_file_path)
 
-					join_time_info <- global_stats_data$`joining-time`
-					#converte em segundos
-					mean_join_time <- (join_time_info[[1]]$mean*NUM_MS_IN_TIMESLOT)/60000
+      # Iterar sobre os experimentos no arquivo
+      for (i in seq_along(json_data)) {
+        # Acessa os dados do i-ésimo experimento
+        experiment_data <- json_data[[i]]
 
-					lifetime_info <- global_stats_data$`network_lifetime`
-					min_lifetime <- lifetime_info[[1]]$min
+        # Filtra os dados para o número específico de nós
+        num_nodes <- length(experiment_data)
+        nodes_data <- experiment_data[1:(num_nodes - 1)]
 
-					upstream_delivery_info <- global_stats_data$`e2e-upstream-delivery`
-					value_upstream_delivery <- upstream_delivery_info[[1]]$value 
+        Remover o campo "latencies" de cada nó
+        nodes_data <- lapply(nodes_data, function(node) {
+          node$latencies <- NULL
+          return(node)
+        })
 
-					# Armazenar a média
-					mean_latencies_list <- c(mean_latencies_list, mean_latencies)
-					mean_join_time_list <- c(mean_join_time_list, mean_join_time)
-					#converte o lifetime de anos em dias antes de armazenar o resultado
-					mean_lifetime_list <- c(mean_lifetime_list,min_lifetime*NUM_DAYS_YEAR)
-					mean_upstream_delivery_list <- c(mean_upstream_delivery_list,value_upstream_delivery)
-				}
-			}
-			
-			# Calcular a média e o intervalo de confiança da média
-			media_latencias <- mean(mean_latencies_list)
-			media_join_time <- mean(mean_join_time_list)
-			media_lifetime <- mean(mean_lifetime_list)
-			media_delivery_ratio <- mean(mean_upstream_delivery_list)
-			
-			# Adicionar resultados aos dataframes
-			nos <- switch(ordem_extracao, 10, 50, 100, 150, 200)
+        # Converte os dados para um dataframe
+        df <- lapply(nodes_data, function(node) {
+          if (is.null(node$avg_current_uA)) {
+            node$avg_current_uA <- 0
+          }
+          return(node)
+        }) %>%
+          as.data.frame()
 
-			resultados_media <- bind_rows(resultados_media, data.frame(Nos = nos, Media = media_latencias))
-			resultados_join_time <- bind_rows(resultados_join_time, data.frame(Nos = nos, Media = media_join_time))
-			resultados_lifetime <- bind_rows(resultados_lifetime, data.frame(Nos = nos, Media = media_lifetime))
-			resultados_delivery_ratio <- bind_rows(resultados_delivery_ratio, data.frame(Nos = nos, Media = media_delivery_ratio))
+        print(df)
 
-			all_results <- list(resultados_media,resultados_join_time,resultados_lifetime,resultados_delivery_ratio)
-		}
-	}
-	return (all_results)
+        # Adiciona uma coluna "Experiment" com o número do experimento
+        df$Experiment <- i
+
+        # Adiciona o dataframe ao dataframe final
+        final_df <- rbind(final_df, df)
+      }
+    }
+  }
+
+  # Calcula a média para cada métrica agrupada por nó
+  final_df_mean <- final_df %>%
+    group_by(Experiment, .id = "Node") %>%
+    summarise_all(mean, na.rm = TRUE)
+
+  return(final_df_mean)
 }
 
 plot_graphs <- function(results_msf,results_q_learning) {
@@ -139,10 +129,7 @@ file_path_msf <- sprintf("%s/Results/", folder_name_msf)
 #caminho absoluto para a pasta dos resultados do Q learning
 file_path_q_learning <- sprintf("%s/Results/", folder_name_qlearning)
 
-all_results_msf = return_method_mean_results(file_path_msf)
-all_results_q_learning = return_method_mean_results(file_path_q_learning)
 
-current_data_frame_msf = all_results_msf[[1]]
-current_data_frame_q_learning = all_results_q_learning[[1]]
+final_df_msf <- compute_final_dataframe(file_path_msf)
 
-plot_graphs(all_results_msf,all_results_q_learning)
+final_df_q_learning <- compute_final_dataframe(file_path_q_learning)
