@@ -222,7 +222,7 @@ if __name__ == '__main__':
 
     config_file = load_config()
 
-    output_folder_name = build_folder_name() + 'msf'
+    output_folder_name = build_folder_name() + 'qlearnign'
 
     create_output_folder(output_folder_name)
 
@@ -232,8 +232,14 @@ if __name__ == '__main__':
         parameterized_config_file = parameterize_config(config_file,parameters)
         save_config(output_folder_name,parameterized_config_file)
 
-        subprocess.run(["python2", "runSim.py","--config",f'{output_folder_name}/config.json'])
-
+        #3 tentativas
+        for i in range(3):
+            try:
+                print(f'tentativa {i} de rodar a simulacao')
+                subprocess.run(["python2", "runSim.py","--config",f'{output_folder_name}/config.json'])
+                break
+            except:
+                pass
         # gambiarra necessaria pois nao achei como fazer o simulador salvar o resultado na pasta q quero
 
         simulator_folder_output_path = find_simulator_output_folder()
