@@ -84,15 +84,24 @@ def find_simulator_output_folder():
             return folder_path
             break
 
-def copy_files_from(src_path,dst_path):
-    print('Copiando arquivos para a pasta de resultados')
-    file_names = os.listdir(src_path)
-    for file_name in file_names:
-        if '.dat' in file_name:
-            shutil.copyfile(
-                os.path.join(src_path,file_name),
-                os.path.join(dst_path,"Results",file_name)
-            )
+def copy_files_from(src_path, dst_path):
+    max_attempts = 5 
+    wait_time = 2   
+
+    for attempt in range(max_attempts):
+        file_names = os.listdir(src_path)
+        if any('.dat' in file_name for file_name in file_names):
+            for file_name in file_names:
+                if '.dat' in file_name:
+                    shutil.move(
+                        os.path.join(src_path, file_name),
+                        os.path.join(dst_path, "Results", file_name)
+                    )
+            return  
+
+        time.sleep(wait_time)
+
+    print("Aviso: Não foi possível copiar os arquivos após várias tentativas.")
 
 def erase_simulator_output_folder(folder_path):
     shutil.rmtree(folder_path)
@@ -223,8 +232,14 @@ if __name__ == '__main__':
         parameterized_config_file = parameterize_config(config_file,parameters)
         save_config(output_folder_name,parameterized_config_file)
 
-        subprocess.run(["python2", "runSim.py","--config",f'{output_folder_name}/config.json'])
-
+        #3 tentativas
+        for i in range(3):
+            try:
+                print(f'tentativa {i} de rodar a simulacao')
+                subprocess.run(["python2", "runSim.py","--config",f'{output_folder_name}/config.json'])
+                break
+            except:
+                pass
         # gambiarra necessaria pois nao achei como fazer o simulador salvar o resultado na pasta q quero
 
         simulator_folder_output_path = find_simulator_output_folder()
