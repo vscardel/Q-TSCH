@@ -3,118 +3,62 @@ library(dplyr)
 library(ggplot2)
 library(scales)
 library(reshape)
+library(tidyr)
 
-extract_nodes_from_filename <- function(filename) {
-  # Use expressão regular para extrair o número de nós
-  match <- regexec("exec_numMotes_([0-9]+)\\.dat\\.kpi", filename)
+
+plot_boxplots <- function(df_msf, df_q_learning, path_to_save, file_name, metric_name) {
   
-  # Verifique se houve uma correspondência bem-sucedida
-  if (match[[1]][1] != -1) {
-    # Extrai o número de nós da correspondência
-    num_nodes <- as.integer(sub("exec_numMotes_([0-9]+)\\.dat\\.kpi", "\\1", filename))
-    return(num_nodes)
-  } else {
-    # Retorna NA se não houver correspondência
-    return(NA)
-  }
+  # Adiciona uma coluna Experimento aos dataframes
+  df_msf$Experimento <- "MSF"
+  df_q_learning$Experimento <- "Q-Learning"
+
+  # Juntar os dataframes
+  df_plot <- rbind(df_msf, df_q_learning)
+
+  # Criar o gráfico de boxplots
+  plot_current_graph <- ggplot(df_plot, aes(x = as.factor(Experimento), y = get(metric_name), fill = Experimento)) +
+    geom_boxplot(alpha = 0.8) +
+    labs(title = paste("Boxplot para", metric_name, "por Número de Nós"),
+         x = "Número de Nós",
+         y = metric_name) +
+    theme_minimal() +
+			scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+		theme(plot.background = element_rect(fill = "white")) +
+    scale_fill_manual(values = c(rgb(51/255, 187/255, 1), rgb(0, 204/255, 153/255)))
+
+  # Salvar o gráfico
+  ggsave(file.path(path_to_save, file_name), plot = plot_current_graph, width = 8, height = 6, units = "in", dpi = 300)
 }
 
-compute_final_dataframe <- function(file_path) {
-  # Inicializa um dataframe vazio
-  final_df <- data.frame()
-
-  # Iterar sobre os arquivos
-  for (file_name in list.files(file_path)) {
+plot_bar_graph_averages <- function(dfs_msf,dfs_q_learning,column_name,graph_legend,path_to_save,file_name) {
 	
-    current_file_path <- file.path(file_path, file_name)
+	calculate_average <- function(dataframes, column_name) {
+		averages <- sapply(dataframes, function(df) mean(df[[column_name]]))
+		return(averages)
+	}
 
-    # Verificar se o arquivo é .kpi
-    if (grepl(".kpi", current_file_path)) {
-      # Ler os dados do JSON
-      json_data <- fromJSON(file = current_file_path)
+	averages_msf <- calculate_average(dfs_msf, column_name)
+	averages_q_learning <- calculate_average(dfs_q_learning, column_name)
 
-      # Iterar sobre os experimentos no arquivo
-      for (i in seq_along(json_data)) {
-        # Acessa os dados do i-ésimo experimento
-        experiment_data <- json_data[[i]]
+	df_plot <- data.frame(
+		Nos = c(10, 50, 100, 150, 200),
+		Media_MSF = averages_msf,
+		Media_Q_Learning = averages_q_learning
+	)
 
-        # Filtra os dados para o número específico de nós
-        num_nodes <- length(experiment_data)
-        nodes_data <- experiment_data[1:(num_nodes - 1)]
+	df_plot_long <- df_plot %>% pivot_longer(cols = c(Media_MSF, Media_Q_Learning), names_to = "Tipo", values_to = "Media")
 
-        Remover o campo "latencies" de cada nó
-        nodes_data <- lapply(nodes_data, function(node) {
-          node$latencies <- NULL
-          return(node)
-        })
-
-        # Converte os dados para um dataframe
-        df <- lapply(nodes_data, function(node) {
-          if (is.null(node$avg_current_uA)) {
-            node$avg_current_uA <- 0
-          }
-          return(node)
-        }) %>%
-          as.data.frame()
-
-        print(df)
-
-        # Adiciona uma coluna "Experiment" com o número do experimento
-        df$Experiment <- i
-
-        # Adiciona o dataframe ao dataframe final
-        final_df <- rbind(final_df, df)
-      }
-    }
-  }
-
-  # Calcula a média para cada métrica agrupada por nó
-  final_df_mean <- final_df %>%
-    group_by(Experiment, .id = "Node") %>%
-    summarise_all(mean, na.rm = TRUE)
-
-  return(final_df_mean)
-}
-
-plot_graphs <- function(results_msf,results_q_learning) {
-	# Criar uma pasta para os gráficos se não existir
-	path_to_save <- sprintf("%s/Graphs/", "/home/vscardel/ResultSimExperiments")
-	dir.create(path_to_save, showWarnings = FALSE)
-
-	graph_file_names = c("latency.jpg","join_time.jpg","lifetime.jpg","delivery_ratio.jpg")
-
-	graph_count <- 1
-
-	for (index in seq_along(results_msf)) {
-
-		current_data_frame_msf = results_msf[[index]]
-		current_data_frame_q_learning = results_q_learning[[index]]
-
-		combined_data <- data.frame(
-			Nos = rep(current_data_frame_msf$Nos, 2),  # Repetir para ter dois conjuntos de barras
-			Media = c(current_data_frame_msf$Media, current_data_frame_q_learning$Media),
-			Tipo = rep(c("MSF", "Q-Learning"), each = length(current_data_frame_msf$Nos))
-		)
-
-		current_y_label <- switch(
-			graph_count,
-			"Média das Latências",
-			"Média dos Join Times Em Segundos",
-			"Tempo de Vida Médio em Dias",
-			"Taxa Média de Entrega dos Pacotes"
-		)
-
-		plot_current_graph <- ggplot(combined_data, aes(x = as.factor(Nos), y = Media, fill = Tipo)) +
-		geom_bar(aes(y = Media, fill = Tipo), stat = "identity", position = "dodge", color = "white", width = 0.7, alpha = 0.4) +
-		labs(title = current_y_label, x = "Número de Nós", y = "") +
-		theme_minimal() +
+	plot_current_graph <- ggplot(df_plot_long, aes(x = as.factor(Nos), y = Media, fill = Tipo)) +
+	geom_bar(stat = "identity", position = "dodge", color = "white", width = 0.7, alpha = 0.8) +
+	labs(title = paste(graph_legend, "em relação ao Número de Nós"),
+		x = "Número de Nós",
+		y = paste("Média de", graph_legend)) +
+	theme_minimal() +
 		scale_y_continuous(breaks = pretty_breaks(n = 10)) +
 		theme(plot.background = element_rect(fill = "white")) +
-		scale_fill_manual(values = c(rgb(51/255, 187/255, 1), rgb(0, 204/255, 153/255)))
+	scale_fill_manual(values = c(rgb(51/255, 187/255, 1), rgb(0, 204/255, 153/255)))
 
-		ggsave(file.path(path_to_save, graph_file_names[graph_count]), plot = plot_current_graph, width = 8, height = 6, units = "in", dpi = 300)
-		graph_count <- graph_count + 1
-	}
+	ggsave(file.path(path_to_save, file_name), plot = plot_current_graph, width = 8, height = 6, units = "in", dpi = 300)
 }
 
 setwd("/home/vscardel/q_tsch_simulator/master/bin")
@@ -123,13 +67,100 @@ setwd("/home/vscardel/q_tsch_simulator/master/bin")
 folder_name_msf <- readline("Digite a pasta do experimento MSF que deseja plotar: ")
 folder_name_qlearning <- readline("Digite a pasta do experimento Q learning que deseja plotar: ")
 
+
 #caminho absoluto para a pasta dos resultados da MSF
 file_path_msf <- sprintf("%s/Results/", folder_name_msf)
 
 #caminho absoluto para a pasta dos resultados do Q learning
 file_path_q_learning <- sprintf("%s/Results/", folder_name_qlearning)
 
+load_dataframe <- function(folder_path, csv_file_name) {
+  file_path <- file.path(folder_path, csv_file_name)
+  read.csv(file_path)
+}
 
-final_df_msf <- compute_final_dataframe(file_path_msf)
+dfs_msf <- list()
 
-final_df_q_learning <- compute_final_dataframe(file_path_q_learning)
+dfs_q_learning <- list()
+
+csv_files_msf <- list.files(file_path_msf, pattern = "\\.csv")
+
+csv_files_q_learning <- list.files(file_path_q_learning, pattern = "\\.csv")
+
+for (csv_file in csv_files_msf) {
+  df <- load_dataframe(file_path_msf, csv_file)
+  dfs_msf[[csv_file]] <- df
+}
+
+for (csv_file in csv_files_q_learning) {
+  df <- load_dataframe(file_path_q_learning, csv_file)
+  dfs_q_learning[[csv_file]] <- df
+}
+
+plot_bar_graph_averages(
+	dfs_msf,
+	dfs_q_learning,
+	"lifetime_AA_years",
+	"Tempo de Vida em Anos",
+	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0',
+	'lifetime.jpg'
+)
+
+plot_bar_graph_averages(
+	dfs_msf,
+	dfs_q_learning,
+	"latency_avg_s",
+	"Latência Media",
+	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0',
+	'latencias.jpg'
+)
+
+plot_bar_graph_averages(
+	dfs_msf,
+	dfs_q_learning,
+	"join_time_s",
+	"Join Time",
+	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0',
+	'join.jpg'
+)
+
+plot_bar_graph_averages(
+	dfs_msf,
+	dfs_q_learning,
+	"upstream_reliability",
+	"Taxa de Entrega Ponto a Ponto",
+	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0',
+	'taxas_entrega.jpg'
+)
+
+plot_boxplots(
+	dfs_msf[[1]], 
+	dfs_q_learning[[1]], 
+	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0', 
+	paste('lifetime_AA_years', "_boxplot_comparison.jpg", sep = ""),
+	'lifetime_AA_years'
+)
+
+plot_boxplots(
+	dfs_msf[[1]], 
+	dfs_q_learning[[1]], 
+	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0', 
+	paste('latency_avg_s', "_boxplot_comparison.jpg", sep = ""),
+	'latency_avg_s'
+)
+
+plot_boxplots(
+	dfs_msf[[1]], 
+	dfs_q_learning[[1]], 
+	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0', 
+	paste('join_time_s', "_boxplot_comparison.jpg", sep = ""),
+	'join_time_s'
+)
+
+plot_boxplots(
+	dfs_msf[[1]], 
+	dfs_q_learning[[1]], 
+	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0', 
+	paste('upstream_reliability', "_boxplot_comparison.jpg", sep = ""),
+	'upstream_reliability'
+)
