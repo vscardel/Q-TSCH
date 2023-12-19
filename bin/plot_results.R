@@ -3,128 +3,62 @@ library(dplyr)
 library(ggplot2)
 library(scales)
 library(reshape)
+library(tidyr)
 
-return_method_mean_results <- function(file_path) {
 
-	NUM_DAYS_YEAR = 365
-	NUM_MS_IN_TIMESLOT = 10
+plot_boxplots <- function(df_msf, df_q_learning, path_to_save, file_name, metric_name) {
+  
+  # Adiciona uma coluna Experimento aos dataframes
+  df_msf$Experimento <- "MSF"
+  df_q_learning$Experimento <- "Q-Learning"
 
-	# Variáveis para armazenar os resultados
-	resultados_media <- data.frame()
-	resultados_join_time <- data.frame()
-	resultados_lifetime <- data.frame()
-	resultados_delivery_ratio <- data.frame()
+  # Juntar os dataframes
+  df_plot <- rbind(df_msf, df_q_learning)
 
-	ordem_extracao <- 0
+  # Criar o gráfico de boxplots
+  plot_current_graph <- ggplot(df_plot, aes(x = as.factor(Experimento), y = get(metric_name), fill = Experimento)) +
+    geom_boxplot(alpha = 0.8) +
+    labs(title = paste("Boxplot para", metric_name, "por Número de Nós"),
+         x = "Número de Nós",
+         y = metric_name) +
+    theme_minimal() +
+			scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+		theme(plot.background = element_rect(fill = "white")) +
+    scale_fill_manual(values = c(rgb(51/255, 187/255, 1), rgb(0, 204/255, 153/255)))
 
-	# Iterar sobre os arquivos
-	for (file_name in list.files(file_path)) {
-	
-		current_file_path <- paste0(file_path, file_name)
-	
-		# Verificar se o arquivo é .kpi
-		if (grepl(".kpi", current_file_path)) {
-			
-			ordem_extracao <- ordem_extracao + 1
-			
-			# Ler os dados do JSON
-			json_data <- fromJSON(file = current_file_path)
-			
-			# Inicializar vetor para armazenar as médias
-			mean_latencies_list <- c()
-			mean_join_time_list <- c()
-			mean_lifetime_list <- c()
-			mean_upstream_delivery_list <- c()
-			
-			# Iterar sobre os experimentos
-			for (experiment in names(json_data)) {
-			
-				if ("global-stats" %in% names(json_data[[experiment]])) {
-					
-					# Acessar os dados relevantes
-					global_stats_data <- json_data[[experiment]]$`global-stats`
-
-					latency_info <- global_stats_data$`e2e-upstream-latency`
-					mean_latencies <- latency_info[[1]]$mean 
-
-					join_time_info <- global_stats_data$`joining-time`
-					#converte em segundos
-					mean_join_time <- (join_time_info[[1]]$mean*NUM_MS_IN_TIMESLOT)/60000
-
-					lifetime_info <- global_stats_data$`network_lifetime`
-					min_lifetime <- lifetime_info[[1]]$min
-
-					upstream_delivery_info <- global_stats_data$`e2e-upstream-delivery`
-					value_upstream_delivery <- upstream_delivery_info[[1]]$value 
-
-					# Armazenar a média
-					mean_latencies_list <- c(mean_latencies_list, mean_latencies)
-					mean_join_time_list <- c(mean_join_time_list, mean_join_time)
-					#converte o lifetime de anos em dias antes de armazenar o resultado
-					mean_lifetime_list <- c(mean_lifetime_list,min_lifetime*NUM_DAYS_YEAR)
-					mean_upstream_delivery_list <- c(mean_upstream_delivery_list,value_upstream_delivery)
-				}
-			}
-			
-			# Calcular a média e o intervalo de confiança da média
-			media_latencias <- mean(mean_latencies_list)
-			media_join_time <- mean(mean_join_time_list)
-			media_lifetime <- mean(mean_lifetime_list)
-			media_delivery_ratio <- mean(mean_upstream_delivery_list)
-			
-			# Adicionar resultados aos dataframes
-			nos <- switch(ordem_extracao, 10, 50, 100, 150, 200)
-
-			resultados_media <- bind_rows(resultados_media, data.frame(Nos = nos, Media = media_latencias))
-			resultados_join_time <- bind_rows(resultados_join_time, data.frame(Nos = nos, Media = media_join_time))
-			resultados_lifetime <- bind_rows(resultados_lifetime, data.frame(Nos = nos, Media = media_lifetime))
-			resultados_delivery_ratio <- bind_rows(resultados_delivery_ratio, data.frame(Nos = nos, Media = media_delivery_ratio))
-
-			all_results <- list(resultados_media,resultados_join_time,resultados_lifetime,resultados_delivery_ratio)
-		}
-	}
-	return (all_results)
+  # Salvar o gráfico
+  ggsave(file.path(path_to_save, file_name), plot = plot_current_graph, width = 8, height = 6, units = "in", dpi = 300)
 }
 
-plot_graphs <- function(results_msf,results_q_learning) {
-	# Criar uma pasta para os gráficos se não existir
-	path_to_save <- sprintf("%s/Graphs/", "/home/vscardel/ResultSimExperiments")
-	dir.create(path_to_save, showWarnings = FALSE)
+plot_bar_graph_averages <- function(dfs_msf,dfs_q_learning,column_name,graph_legend,path_to_save,file_name) {
+	
+	calculate_average <- function(dataframes, column_name) {
+		averages <- sapply(dataframes, function(df) mean(df[[column_name]]))
+		return(averages)
+	}
 
-	graph_file_names = c("latency.jpg","join_time.jpg","lifetime.jpg","delivery_ratio.jpg")
+	averages_msf <- calculate_average(dfs_msf, column_name)
+	averages_q_learning <- calculate_average(dfs_q_learning, column_name)
 
-	graph_count <- 1
+	df_plot <- data.frame(
+		Nos = c(10, 50, 100, 150, 200),
+		Media_MSF = averages_msf,
+		Media_Q_Learning = averages_q_learning
+	)
 
-	for (index in seq_along(results_msf)) {
+	df_plot_long <- df_plot %>% pivot_longer(cols = c(Media_MSF, Media_Q_Learning), names_to = "Tipo", values_to = "Media")
 
-		current_data_frame_msf = results_msf[[index]]
-		current_data_frame_q_learning = results_q_learning[[index]]
-
-		combined_data <- data.frame(
-			Nos = rep(current_data_frame_msf$Nos, 2),  # Repetir para ter dois conjuntos de barras
-			Media = c(current_data_frame_msf$Media, current_data_frame_q_learning$Media),
-			Tipo = rep(c("MSF", "Q-Learning"), each = length(current_data_frame_msf$Nos))
-		)
-
-		current_y_label <- switch(
-			graph_count,
-			"Média das Latências",
-			"Média dos Join Times Em Segundos",
-			"Tempo de Vida Médio em Dias",
-			"Taxa Média de Entrega dos Pacotes"
-		)
-
-		plot_current_graph <- ggplot(combined_data, aes(x = as.factor(Nos), y = Media, fill = Tipo)) +
-		geom_bar(aes(y = Media, fill = Tipo), stat = "identity", position = "dodge", color = "white", width = 0.7, alpha = 0.4) +
-		labs(title = current_y_label, x = "Número de Nós", y = "") +
-		theme_minimal() +
+	plot_current_graph <- ggplot(df_plot_long, aes(x = as.factor(Nos), y = Media, fill = Tipo)) +
+	geom_bar(stat = "identity", position = "dodge", color = "white", width = 0.7, alpha = 0.8) +
+	labs(title = paste(graph_legend, "em relação ao Número de Nós"),
+		x = "Número de Nós",
+		y = paste("Média de", graph_legend)) +
+	theme_minimal() +
 		scale_y_continuous(breaks = pretty_breaks(n = 10)) +
 		theme(plot.background = element_rect(fill = "white")) +
-		scale_fill_manual(values = c(rgb(51/255, 187/255, 1), rgb(0, 204/255, 153/255)))
+	scale_fill_manual(values = c(rgb(51/255, 187/255, 1), rgb(0, 204/255, 153/255)))
 
-		ggsave(file.path(path_to_save, graph_file_names[graph_count]), plot = plot_current_graph, width = 8, height = 6, units = "in", dpi = 300)
-		graph_count <- graph_count + 1
-	}
+	ggsave(file.path(path_to_save, file_name), plot = plot_current_graph, width = 8, height = 6, units = "in", dpi = 300)
 }
 
 setwd("/home/vscardel/q_tsch_simulator/master/bin")
@@ -133,16 +67,100 @@ setwd("/home/vscardel/q_tsch_simulator/master/bin")
 folder_name_msf <- readline("Digite a pasta do experimento MSF que deseja plotar: ")
 folder_name_qlearning <- readline("Digite a pasta do experimento Q learning que deseja plotar: ")
 
+
 #caminho absoluto para a pasta dos resultados da MSF
 file_path_msf <- sprintf("%s/Results/", folder_name_msf)
 
 #caminho absoluto para a pasta dos resultados do Q learning
 file_path_q_learning <- sprintf("%s/Results/", folder_name_qlearning)
 
-all_results_msf = return_method_mean_results(file_path_msf)
-all_results_q_learning = return_method_mean_results(file_path_q_learning)
+load_dataframe <- function(folder_path, csv_file_name) {
+  file_path <- file.path(folder_path, csv_file_name)
+  read.csv(file_path)
+}
 
-current_data_frame_msf = all_results_msf[[1]]
-current_data_frame_q_learning = all_results_q_learning[[1]]
+dfs_msf <- list()
 
-plot_graphs(all_results_msf,all_results_q_learning)
+dfs_q_learning <- list()
+
+csv_files_msf <- list.files(file_path_msf, pattern = "\\.csv")
+
+csv_files_q_learning <- list.files(file_path_q_learning, pattern = "\\.csv")
+
+for (csv_file in csv_files_msf) {
+  df <- load_dataframe(file_path_msf, csv_file)
+  dfs_msf[[csv_file]] <- df
+}
+
+for (csv_file in csv_files_q_learning) {
+  df <- load_dataframe(file_path_q_learning, csv_file)
+  dfs_q_learning[[csv_file]] <- df
+}
+
+plot_bar_graph_averages(
+	dfs_msf,
+	dfs_q_learning,
+	"lifetime_AA_years",
+	"Tempo de Vida em Anos",
+	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0',
+	'lifetime.jpg'
+)
+
+plot_bar_graph_averages(
+	dfs_msf,
+	dfs_q_learning,
+	"latency_avg_s",
+	"Latência Media",
+	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0',
+	'latencias.jpg'
+)
+
+plot_bar_graph_averages(
+	dfs_msf,
+	dfs_q_learning,
+	"join_time_s",
+	"Join Time",
+	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0',
+	'join.jpg'
+)
+
+plot_bar_graph_averages(
+	dfs_msf,
+	dfs_q_learning,
+	"upstream_reliability",
+	"Taxa de Entrega Ponto a Ponto",
+	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0',
+	'taxas_entrega.jpg'
+)
+
+plot_boxplots(
+	dfs_msf[[1]], 
+	dfs_q_learning[[1]], 
+	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0', 
+	paste('lifetime_AA_years', "_boxplot_comparison.jpg", sep = ""),
+	'lifetime_AA_years'
+)
+
+plot_boxplots(
+	dfs_msf[[1]], 
+	dfs_q_learning[[1]], 
+	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0', 
+	paste('latency_avg_s', "_boxplot_comparison.jpg", sep = ""),
+	'latency_avg_s'
+)
+
+plot_boxplots(
+	dfs_msf[[1]], 
+	dfs_q_learning[[1]], 
+	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0', 
+	paste('join_time_s', "_boxplot_comparison.jpg", sep = ""),
+	'join_time_s'
+)
+
+plot_boxplots(
+	dfs_msf[[1]], 
+	dfs_q_learning[[1]], 
+	'/home/vscardel/ResultSimExperiments/Graphs/randomTopologyWithPredictableBurst1.0', 
+	paste('upstream_reliability', "_boxplot_comparison.jpg", sep = ""),
+	'upstream_reliability'
+)
