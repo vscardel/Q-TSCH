@@ -31,31 +31,63 @@ plot_boxplots <- function(df_msf, df_q_learning, path_to_save, file_name, metric
 }
 
 plot_bar_graph_averages <- function(dfs_msf,dfs_q_learning,column_name,graph_legend,path_to_save,file_name) {
+
+	create_margin_error_list <- function(stat_result_msf,stat_result_q_learning) {
+		margin_error_list <- c()
+		for(df_name in names(stat_result_msf)) {
+			margin_error_current_df_msf <- stat_result_msf[[df_name]]$margin_error
+			margin_error_current_df_qlearning <- stat_result_q_learning[[df_name]]$margin_error
+			margin_error_list <- c(margin_error_list,margin_error_current_df_msf,margin_error_current_df_qlearning)
+		}
+		return(margin_error_list)
+	}
 	
 	calculate_average <- function(dataframes, column_name) {
-		averages <- sapply(dataframes, function(df) mean(df[[column_name]]))
-		return(averages)
-	}
+		results <- list()
+		for (dataframe_name in names(dataframes)) {
+			current_dataframe_column_data <- dataframes[[dataframe_name]][, column_name]
+			mean_data <- mean(current_dataframe_column_data)
+			n <- length(current_dataframe_column_data)
+			sd_value <- sd(current_dataframe_column_data)
+			se <- sd_value / sqrt(n)
+			alpha <- 0.01
+			freedom <- n - 1
+			t_score <- qt(p = alpha / 2, df = freedom, lower.tail = FALSE)
+			margin_error <- t_score * se
 
-	averages_msf <- calculate_average(dfs_msf, column_name)
-	averages_q_learning <- calculate_average(dfs_q_learning, column_name)
+			result <- list(
+				Mean = mean_data,
+				margin_error = margin_error
+			)
+			results[[dataframe_name]] <- result
+		}
+		return(results)
+	}
+	result_stat_msf <- calculate_average(dfs_msf, column_name)
+	result_stat_qlearning <- calculate_average(dfs_q_learning, column_name)
 
 	df_plot <- data.frame(
 		Nos = c(10, 50, 100, 150, 200),
-		Media_MSF = averages_msf,
-		Media_Q_Learning = averages_q_learning
+		Media_MSF = sapply(result_stat_msf, function(result) result$Mean),
+		Media_Q_Learning = sapply(result_stat_qlearning, function(result) result$Mean)
 	)
 
 	df_plot_long <- df_plot %>% pivot_longer(cols = c(Media_MSF, Media_Q_Learning), names_to = "Tipo", values_to = "Media")
 
-	plot_current_graph <- ggplot(df_plot_long, aes(x = as.factor(Nos), y = Media, fill = Tipo)) +
+	Confidence_Intervals <- create_margin_error_list(result_stat_msf, result_stat_qlearning)
+	final_df <-  cbind(df_plot_long,Confidence_Intervals)
+
+	print(final_df)
+
+	plot_current_graph <- ggplot(final_df, aes(x = as.factor(Nos), y = Media, fill = Tipo)) +
 	geom_bar(stat = "identity", position = "dodge", color = "white", width = 0.7, alpha = 0.8) +
+	geom_errorbar( aes(x=as.factor(Nos), ymin=Media-Confidence_Intervals, ymax=Media+Confidence_Intervals), width=0.4,position = position_dodge(width = 0.7), colour="orange", alpha=0.9, size=1.3) +
 	labs(title = paste(graph_legend, "em relação ao Número de Nós"),
 		x = "Número de Nós",
 		y = paste("Média de", graph_legend)) +
 	theme_minimal() +
-		scale_y_continuous(breaks = pretty_breaks(n = 10)) +
-		theme(plot.background = element_rect(fill = "white")) +
+	scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+	theme(plot.background = element_rect(fill = "white")) +
 	scale_fill_manual(values = c(rgb(51/255, 187/255, 1), rgb(0, 204/255, 153/255)))
 
 	ggsave(file.path(path_to_save, file_name), plot = plot_current_graph, width = 8, height = 6, units = "in", dpi = 300)
@@ -63,7 +95,10 @@ plot_bar_graph_averages <- function(dfs_msf,dfs_q_learning,column_name,graph_leg
 
 setwd("/home/vscardel/q_tsch_simulator/master/bin")
 
+
 # Solicitar a pasta do experimento
+#/home/vscardel/ResultSimExperiments/msfRandomTopologyPredictableBurstResults
+#/home/vscardel/ResultSimExperiments/qlearningRandomTopologyPredictableBurstResults
 folder_name_msf <- readline("Digite a pasta do experimento MSF que deseja plotar: ")
 folder_name_qlearning <- readline("Digite a pasta do experimento Q learning que deseja plotar: ")
 
@@ -83,9 +118,17 @@ dfs_msf <- list()
 
 dfs_q_learning <- list()
 
+
 csv_files_msf <- list.files(file_path_msf, pattern = "\\.csv")
 
 csv_files_q_learning <- list.files(file_path_q_learning, pattern = "\\.csv")
+
+#ordena por numero de nos
+node_numbers <- as.numeric(gsub("\\D", "", csv_files_msf))
+csv_files_msf <- csv_files_msf[order(node_numbers)]
+
+node_numbers <- as.numeric(gsub("\\D", "", csv_files_q_learning))
+csv_files_q_learning <- csv_files_q_learning[order(node_numbers)]
 
 for (csv_file in csv_files_msf) {
   df <- load_dataframe(file_path_msf, csv_file)
