@@ -239,7 +239,7 @@ if __name__ == '__main__':
                 subprocess.run(["python2", "runSim.py","--config",f'{output_folder_name}/config.json'])
                 break
             except:
-                pass
+                erase_simulator_output_folder(output_folder_name)
         # gambiarra necessaria pois nao achei como fazer o simulador salvar o resultado na pasta q quero
 
         simulator_folder_output_path = find_simulator_output_folder()
