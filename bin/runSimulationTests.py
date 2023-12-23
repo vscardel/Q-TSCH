@@ -141,6 +141,7 @@ def draw_network(dst_path,parameters,num_node):
         ]
     )
 
+
 def compute_mean_node_data(node,experiments_mean_results):
     node_data_list = experiments_mean_results[node]
     mean_dictionary = {}
@@ -221,7 +222,7 @@ if __name__ == '__main__':
 
     config_file = load_config()
 
-    output_folder_name = build_folder_name() + 'msf'
+    output_folder_name = build_folder_name() + 'qlearnign'
 
     create_output_folder(output_folder_name)
 
@@ -238,7 +239,7 @@ if __name__ == '__main__':
                 subprocess.run(["python2", "runSim.py","--config",f'{output_folder_name}/config.json'])
                 break
             except:
-                pass
+                erase_simulator_output_folder(output_folder_name)
         # gambiarra necessaria pois nao achei como fazer o simulador salvar o resultado na pasta q quero
 
         simulator_folder_output_path = find_simulator_output_folder()
