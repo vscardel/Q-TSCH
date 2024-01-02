@@ -85,11 +85,12 @@ def find_simulator_output_folder():
             break
 
 def copy_files_from(src_path, dst_path):
-    max_attempts = 5 
-    wait_time = 2   
+    max_attempts = 20 
+    wait_time = 10   
 
     for attempt in range(max_attempts):
         file_names = os.listdir(src_path)
+        print(file_names)
         if any('.dat' in file_name for file_name in file_names):
             for file_name in file_names:
                 if '.dat' in file_name:
@@ -234,12 +235,11 @@ if __name__ == '__main__':
 
         #3 tentativas
         for i in range(3):
-            try:
-                print(f'tentativa {i} de rodar a simulacao')
-                subprocess.run(["python2", "runSim.py","--config",f'{output_folder_name}/config.json'])
+            print(f'tentativa {i} de rodar a simulacao')
+            result = subprocess.run(["python2", "runSim.py","--config",f'{output_folder_name}/config.json'])
+            if result.returncode == 0:
                 break
-            except:
-                erase_simulator_output_folder(output_folder_name)
+        
         # gambiarra necessaria pois nao achei como fazer o simulador salvar o resultado na pasta q quero
 
         simulator_folder_output_path = find_simulator_output_folder()

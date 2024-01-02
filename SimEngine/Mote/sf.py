@@ -284,10 +284,16 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
 
 
     def indication_rx_cell_elapsed(self, cell, received_packet):
+
+        srcMac = None
         preferred_parent = self.mote.rpl.getPreferredParent()
         if not preferred_parent:
             # nothing to do
             return
+        if received_packet:
+            mac = received_packet.get(u'mac',None)
+            if mac:
+                srcMac = mac.get('srcMac')
 
         if (
                 (cell.mac_addr == preferred_parent)
@@ -306,7 +312,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             if (
                 received_packet is None
                 or
-                received_packet[u'mac'][u'srcMac'] == preferred_parent
+                srcMac == preferred_parent
                 ):
                 if not self.get_negotiated_rx_cells(preferred_parent):
                     self._handle_rx_cell_elapsed_event(bool(received_packet))
@@ -314,7 +320,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     # ignore this notification
                     pass
             elif (
-                self.get_negotiated_rx_cells(received_packet[u'mac'][u'srcMac'])
+                self.get_negotiated_rx_cells(srcMac)
                 ):
                 self._handle_rx_cell_elapsed_event(False)
                 assert cell.options == [d.CELLOPTION_RX]
@@ -322,7 +328,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                 # source mote of which we have negotiated RX cells. The
                 # source mote must have lost the negotaited RX cells, TX
                 # on its viewpoint. Remove them now.
-                self._clear_cells(received_packet[u'mac'][u'srcMac'])
+                self._clear_cells(srcMac)
 
     def indication_parent_change(self, old_parent, new_parent):
         assert old_parent != new_parent
@@ -668,13 +674,14 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
     def _adapt_to_traffic(self, neighbor, cell_opt):
 
 
-        print("EPSLON")
+        #print("EPSLON")
 
         # reset retry counter
         assert neighbor in self.retry_count
         if self.retry_count[neighbor] != -1:
             # we're in the middle of a 6P transaction; try later
             return
+
 
         tx_cells = [cell for cell in self.mote.tsch.get_cells(
             neighbor,
@@ -705,13 +712,13 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         else:
             action = random.choice([0,1,2])
 
-        self.print_exploitation(
-            queue_ratio,
-            action,
-            num_rx_ack,
-            len(rx_cells),
-            len(tx_cells)
-        )
+        # self.print_exploitation(
+        #     queue_ratio,
+        #     action,
+        #     num_rx_ack,
+        #     len(rx_cells),
+        #     len(tx_cells)
+        # )
 
         discrete_variables = self.discretize_variables(list_state_variables)
 
@@ -736,6 +743,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                     num_tx_cells = add_cells
                 )
         elif action == 0:
+
             if cell_opt == self.RX_CELL_OPT:
                 if len(rx_cells) >= 3:
                     self.retry_count[neighbor] = 0
@@ -774,7 +782,6 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         discrete_next_state_variables = self.discretize_variables(list_next_state_variables)
 
         self.compute_q_table(list_state_variables,list_next_state_variables,action,cell_opt)
-
 
     def discretize_variables(self,list_variables):
 
@@ -828,8 +835,6 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         else:
             return (1-discrete_queue) + (1-discrete_num_rx_ack) + (+discrete_energy_left)  
             
-
-        
     def return_best_q_value(self,state):
        current_vector = self.Q_table[state]
        return np.max(current_vector)
@@ -1406,11 +1411,18 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
                 else:
                     # retry
                     self.retry_count[neighbor] += 1
-                    self._request_deleting_cells(
+
+                    cells = [cell for cell in self.mote.tsch.get_cells(
                         neighbor,
-                        num_cells,
-                        cell_options
-                    )
+                        self.SLOTFRAME_HANDLE_NEGOTIATED_CELLS
+                    ) if cell.options == cell_options]
+
+                    if len(cells) >= num_cells:
+                        self._request_deleting_cells(
+                            neighbor,
+                            num_cells,
+                            cell_options
+                        )
             else:
                 # ignore other events
                 pass
