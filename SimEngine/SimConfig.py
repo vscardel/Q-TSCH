@@ -55,7 +55,7 @@ class SimConfig(dict):
     _startTime          = None
     _log_directory_name = None
 
-    def __init__(self, configfile=None, configdata=None):
+    def __init__(self, configfile=None, configdata=None,user_dir_name=None):
 
         if SimConfig._startTime is None:
             # startTime needs to be initialized
@@ -82,7 +82,7 @@ class SimConfig(dict):
 
         # decide a directory name for log files
         if SimConfig._log_directory_name is None:
-            self._decide_log_directory_name()
+            self._decide_log_directory_name(user_dir_name)
 
     def __getattr__(self, name):
         return getattr(self.config, name)
@@ -131,12 +131,14 @@ class SimConfig(dict):
         }
         return config_json
 
-    def _decide_log_directory_name(self):
+    def _decide_log_directory_name(self,user_dir_name=None):
 
         assert SimConfig._log_directory_name is None
 
         # determine log_directory_name
-        if   self.log_directory_name == u'startTime':
+        if user_dir_name:
+            log_directory_name = user_dir_name
+        elif   self.log_directory_name == u'startTime':
             log_directory_name = u'{0}-{1:03d}'.format(
                 time.strftime(
                     "%Y%m%d-%H%M%S",
@@ -156,7 +158,7 @@ class SimConfig(dict):
                 index = len(glob.glob(log_directory_path + u'*'))
                 log_directory_name = u'_'.join((hostname, str(index)))
             else:
-                log_directory_name = hostname
+                log_directory_name = hostname            
         else:
             raise NotImplementedError(
                 u'log_directory_name "{0}" is not supported'.format(
