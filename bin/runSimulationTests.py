@@ -222,7 +222,7 @@ if __name__ == '__main__':
 
     config_file = load_config()
 
-    output_folder_name = build_folder_name() + 'qlearnign'
+    output_folder_name = build_folder_name() + 'msf'
 
     create_output_folder(output_folder_name)
 
@@ -240,6 +240,7 @@ if __name__ == '__main__':
                 break
             except:
                 erase_simulator_output_folder(output_folder_name)
+                
         # gambiarra necessaria pois nao achei como fazer o simulador salvar o resultado na pasta q quero
 
         simulator_folder_output_path = find_simulator_output_folder()
