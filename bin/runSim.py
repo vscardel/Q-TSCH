@@ -172,29 +172,28 @@ def merge_output_files(folder_path):
     Read the dataset folders and merge the datasets (usefull when using multiple CPUs).
     :param string folder_path:
     """
-
     for subfolder in os.listdir(folder_path):
-        # subfolder could have '[' in its name, which is a special character
-        # for glob. This needs to be escaped.
-        file_path_list = sorted(
-            glob.glob(
-                os.path.join(
-                    folder_path,
-                    subfolder.replace('[', '[[]'),
-                    'output_cpu*.dat'
+        if os.path.isdir(subfolder):
+            # subfolder could have '[' in its name, which is a special character
+            # for glob. This needs to be escaped.
+            file_path_list = sorted(
+                glob.glob(
+                    os.path.join(
+                        folder_path,
+                        subfolder.replace('[', '[[]'),
+                        'output_cpu*.dat'
+                    )
                 )
             )
-        )
 
-        # read files and concatenate results
-        with open(os.path.join(folder_path, subfolder + ".dat"), 'w') as outputfile:
-            for file_path in file_path_list:
-                with open(file_path, 'r') as inputfile:
-                    config = json.loads(inputfile.readline())
-                    outputfile.write(json.dumps(config) + "\n")
-                    outputfile.write(inputfile.read())
-        shutil.rmtree(os.path.join(folder_path, subfolder))
-
+            # read files and concatenate results
+            with open(os.path.join(folder_path, subfolder + ".dat"), 'w') as outputfile:
+                for file_path in file_path_list:
+                    with open(file_path, 'r') as inputfile:
+                        config = json.loads(inputfile.readline())
+                        outputfile.write(json.dumps(config) + "\n")
+                        outputfile.write(inputfile.read())
+            shutil.rmtree(os.path.join(folder_path, subfolder))
 # =========================== main ============================================
 
 def main():
