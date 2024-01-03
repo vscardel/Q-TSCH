@@ -413,7 +413,14 @@ def main():
         [os.path.join('simData', x) for x in os.listdir('simData')]
     )
     subfolder = max(subfolders, key=os.path.getmtime)
-    for infile in glob.glob(os.path.join(subfolder, '*.dat')):
+
+    result_folders = list(
+        [os.path.join(subfolder, x) for x in os.listdir(subfolder) if os.path.isdir(os.path.join(subfolder, x))]
+    )
+    
+    current_result_folder = max(result_folders,key=os.path.getmtime)
+
+    for infile in glob.glob(os.path.join(current_result_folder, '*.dat')):
         print('generating KPIs for {0}'.format(infile))
 
         # gather the kpis
