@@ -50,6 +50,12 @@ def parseCliParams():
         default    = 'config.json',
         help       = 'Location of the configuration file.',
     )
+    parser.add_argument(
+        '--output_path',
+        dest       = 'output_path',
+        default    = '.',
+        help       = 'Location of the output folder',
+    )
     cliparams      = parser.parse_args()
     return cliparams.__dict__
 
@@ -199,7 +205,8 @@ def main():
     cliparams = parseCliParams()
 
     # sim config
-    simconfig = SimConfig.SimConfig(configfile=cliparams['config'])
+    output_path = cliparams['output_path']
+    simconfig = SimConfig.SimConfig(configfile=cliparams['config'],user_dir_name=output_path)
     assert simconfig.version == 0
 
     #=== run simulations
