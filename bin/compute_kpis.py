@@ -17,6 +17,9 @@ if __name__ == '__main__':
 import json
 import glob
 import numpy as np
+import argparse
+import csv
+
 
 from SimEngine import SimLog
 import SimEngine.Mote.MoteDefines as d
@@ -402,23 +405,85 @@ def kpis_all(inputfile):
 
     return allstats
 
+def compute_mean_node_data(node,experiments_mean_results):
+    node_data_list = experiments_mean_results[node]
+    mean_dictionary = {}
+    for node_data in node_data_list:
+        for key,value in node_data.items():
+            if value in (None,'N/A'):
+                value = 0
+            if key not in mean_dictionary:
+                mean_dictionary[key] = [value]
+            else:
+                mean_dictionary[key].append(value)
+    for key in mean_dictionary:
+        list_data = mean_dictionary[key]
+        mean_data = sum(list_data)/len(list_data)
+        mean_dictionary[key] = mean_data
+    return mean_dictionary
+
+def generate_mean_dictionaty_list(kpi_file_path):
+    final_mean_dict = {}
+    experiments_run_nodes_list = {}
+    with open(kpi_file_path,'r') as f:
+        json_file = json.load(f)
+        for experiment in json_file:
+            for node in json_file[experiment]:
+                if node == "global-stats":
+                    continue
+                current_node_data = json_file[experiment][node]
+                current_node_data.pop("latencies",None)
+                if node not in experiments_run_nodes_list:
+                    experiments_run_nodes_list[node] = [current_node_data]
+                else:
+                    experiments_run_nodes_list[node].append(current_node_data)
+    for node in experiments_run_nodes_list:
+        final_mean_dict[int(node)] = compute_mean_node_data(node,experiments_run_nodes_list)
+    return final_mean_dict
+
+def save_kpi_in_csv_format(output_folder_name):
+    print('Salvado resultados CSV')
+    file_names = os.listdir(output_folder_name)
+    for file_name in file_names:
+        if 'kpi' in file_name:
+            kpi_file_path = os.path.join(output_folder_name,file_name)
+            #tira o .dat e o .csv
+            file_name_no_extension = file_name[:-8]
+            csv_path = os.path.join(output_folder_name,'{0}.csv'.format(file_name_no_extension))
+            mean_data = generate_mean_dictionaty_list(kpi_file_path)
+            with open(csv_path, 'wb') as arquivo_csv:
+                csv_writer = csv.DictWriter(arquivo_csv, fieldnames=mean_data[1].keys())
+                csv_writer.writeheader()
+                # Escreve os dados
+                for no, dados in mean_data.items():
+                    csv_writer.writerow(dados)
+
 # =========================== main ============================================
 
 def main():
 
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-input_path','--input_path')
+    args = parser.parse_args()
+    input_path = args.input_path
+
     # FIXME: This logic could be a helper method for other scripts
     # Identify simData having the latest results. That directory should have
     # the latest "mtime".
-    subfolders = list(
-        [os.path.join('simData', x) for x in os.listdir('simData')]
-    )
-    subfolder = max(subfolders, key=os.path.getmtime)
+    if input_path:
+        current_result_folder = input_path
+    else:
+        subfolders = list(
+            [os.path.join('simData', x) for x in os.listdir('simData')]
+        )
+        subfolder = max(subfolders, key=os.path.getmtime)
 
-    result_folders = list(
-        [os.path.join(subfolder, x) for x in os.listdir(subfolder) if os.path.isdir(os.path.join(subfolder, x))]
-    )
-    
-    current_result_folder = max(result_folders,key=os.path.getmtime)
+        result_folders = list(
+            [os.path.join(subfolder, x) for x in os.listdir(subfolder) if os.path.isdir(os.path.join(subfolder, x))]
+        )
+        
+        current_result_folder = max(result_folders,key=os.path.getmtime)
 
     for infile in glob.glob(os.path.join(current_result_folder, '*.dat')):
         print('generating KPIs for {0}'.format(infile))
@@ -434,6 +499,8 @@ def main():
         with open(outfile, 'w') as f:
             f.write(json.dumps(kpis, indent=4))
         print('KPIs saved in {0}'.format(outfile))
+        if input_path:
+            save_kpi_in_csv_format(input_path)
 
 if __name__ == '__main__':
     main()
