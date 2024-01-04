@@ -17,7 +17,7 @@ def define_parameters(parser):
         choices=['AppPredictableBurst','AppIndustrialMonitoring','AppPeriodic']
     )
     parser.add_argument('-topo', '--topology',choices=['Grid','Fixed'])
-   w
+    parser.add_argument('-output_path','--output_path')
     parser.add_argument('-cb', '--combinations',type = list_of_ints)    
     
 def build_parameters(args):
