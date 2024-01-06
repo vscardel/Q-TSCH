@@ -589,12 +589,7 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             ####################
             #check state variables
             #self.print_state_variables("rx")
-            
-    def discretize_queue_ratio(self,queue_ratio):
-        if queue_ratio <= 0.118367346939:
-            return 0
-        return 1
-    
+                
     def compute_charge(self):
         charge = 0
         charge =  self.mote.radio.stats['idle_listen'] * d.CHARGE_IdleListen_uC
@@ -673,7 +668,6 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
 
     def _adapt_to_traffic(self, neighbor, cell_opt):
 
-
         #print("EPSLON")
 
         # reset retry counter
@@ -712,13 +706,13 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         else:
             action = random.choice([0,1,2])
 
-        # self.print_exploitation(
-        #     queue_ratio,
-        #     action,
-        #     num_rx_ack,
-        #     len(rx_cells),
-        #     len(tx_cells)
-        # )
+        self.print_exploitation(
+            queue_ratio,
+            action,
+            num_rx_ack,
+            len(rx_cells),
+            len(tx_cells)
+        )
 
         discrete_variables = self.discretize_variables(list_state_variables)
 
@@ -805,6 +799,11 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
             return 1
         return 0
 
+    def discretize_queue_ratio(self,queue_ratio):
+        if queue_ratio <= 0.118367346939:
+            return 0
+        return 1
+
     def map_state_to_number(self,list_state_variables):
         
         discrete_variables = self.discretize_variables(list_state_variables)
@@ -817,7 +816,6 @@ class SchedulingFunctionMSF(SchedulingFunctionBase):
         
         return int(binary_number,2)
 
-    
     #quando remover uma celula
     def compute_reward(self, list_state_variables,list_next_state_variables):
 

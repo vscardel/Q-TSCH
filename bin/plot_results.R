@@ -127,10 +127,17 @@ setwd("/home/vscardel/q_tsch_simulator/master/bin")
 
 
 # Solicitar a pasta do experimento
-#/home/vscardel/ResultSimExperiments/msfRandomTopologyPredictableBurstResults
-#/home/vscardel/ResultSimExperiments/qlearningRandomTopologyPredictableBurstResults
+#/home/vscardel/ResultSimExperiments/msfRandomBurst
+#/home/vscardel/ResultSimExperiments/qlearningRandomBurst
+
+#/home/vscardel/ResultSimExperiments/msfGridBurst
+#/home/vscardel/ResultSimExperiments/qlearningGridBurst
+
+#/home/vscardel/ResultSimExperiments/msfGridPeriodic
+#/home/vscardel/ResultSimExperiments/qlearningGridPeriodic
 folder_name_msf <- readline("Digite a pasta do experimento MSF que deseja plotar: ")
 folder_name_qlearning <- readline("Digite a pasta do experimento Q learning que deseja plotar: ")
+#output_folder <- readline("Digite a pasta do experimento que deseja salvar: ")
 
 
 #caminho absoluto para a pasta dos resultados da MSF
